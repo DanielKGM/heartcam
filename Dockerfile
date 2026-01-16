@@ -7,7 +7,6 @@ ENV PYTHONUNBUFFERED=1
 
 # Instala libs do sistema para OpenCV (necessário mesmo com headless as vezes)
 RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
