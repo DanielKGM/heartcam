@@ -28,7 +28,7 @@ class HeartRateMonitor:
         self.procWidth = 160
         self.procHeight = 120
         self.videoChannels = 3
-        self.fps = 15 
+        self.fps = 10 
 
         # Buffers
         self.videoGauss = np.zeros((self.bufferSize, self.procHeight//(2**self.levels), self.procWidth//(2**self.levels), self.videoChannels))
@@ -85,7 +85,7 @@ class HeartRateMonitor:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # Detecção Facial
-        detected = list(self.face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=4, minSize=(50, 50), flags=cv2.CASCADE_SCALE_IMAGE))
+        detected = list(self.face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=4, minSize=(30, 30), flags=cv2.CASCADE_SCALE_IMAGE))
 
         if len(detected) > 0:
             detected.sort(key=lambda a: a[-1] * a[-2])

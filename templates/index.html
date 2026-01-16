@@ -168,8 +168,8 @@
               </div>
               <canvas
                 id="frame-canvas"
-                width="640"
-                height="480"
+                width="320"
+                height="240"
                 class="d-none"
               ></canvas>
             </div>
@@ -597,15 +597,15 @@
 
       function startSendingFrames() {
         setInterval(() => {
-          context.drawImage(videoElement, 0, 0, 640, 480);
+          context.drawImage(videoElement, 0, 0, 320, 240);
           canvasElement.toBlob(
             (blob) => {
               if (blob) socket.emit("process_frame", { image: blob });
             },
             "image/jpeg",
-            0.7,
+            0.5,
           );
-        }, 66);
+        }, 100);
       }
 
       // --- Recebimento de Dados ---
