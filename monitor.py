@@ -85,7 +85,7 @@ class HeartRateMonitor:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # Detecção Facial
-        detected = list(self.face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=4, minSize=(50, 50), flags=cv2.CASCADE_SCALE_IMAGE))
+        detected = list(self.face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=4, minSize=(40, 40), flags=cv2.CASCADE_SCALE_IMAGE))
 
         if len(detected) > 0:
             detected.sort(key=lambda a: a[-1] * a[-2])
