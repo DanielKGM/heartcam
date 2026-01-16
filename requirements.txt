@@ -1,0 +1,6 @@
+flask
+flask-socketio
+gevent
+gevent-websocket
+opencv-python
+numpy

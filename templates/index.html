@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="pt-br" data-bs-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HeartCam</title>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
+    />
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+
+    <style>
+      body {
+        background-color: #121212;
+      }
+      .card {
+        background-color: #1e1e1e;
+        border: 1px solid #333;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      /* Container do Vídeo */
+      .video-wrapper {
+        position: relative;
+        width: 100%;
+        padding-bottom: 75%; /* Aspect Ratio 4:3 */
+        background: #000;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 2px solid #444;
+      }
+      #user-video,
+      #overlay-canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        transform: scaleX(-1); /* Espelho */
+      }
+      #user-video {
+        object-fit: cover;
+      }
+
+      #roi-preview {
+        width: 100px;
+        height: auto;
+        border: 2px solid #00ff00;
+        border-radius: 4px;
+        display: none;
+      }
+
+      .bpm-value {
+        font-size: 4rem;
+        font-weight: 700;
+        color: #00ff00;
+        line-height: 1;
+        text-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+      }
+      .chart-container {
+        position: relative;
+        height: 200px;
+        width: 100%;
+      }
+
+      .form-check-input:checked {
+        background-color: #00ff00;
+        border-color: #00ff00;
+      }
+
+      /* Links do Disclaimer */
+      .disclaimer-link {
+        color: #0dcaf0;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+      .disclaimer-link:hover {
+        color: #fff;
+      }
+
+      .navbar-nav .btn {
+        margin-left: 5px;
+      }
+      @media (max-width: 991px) {
+        .navbar-nav .btn {
+          margin-left: 0;
+          margin-top: 5px;
+          width: 100%;
+          text-align: left;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav
+      class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary mb-4"
+    >
+      <div class="container">
+        <a class="navbar-brand" href="#"
+          ><i class="bi bi-heart-pulse-fill text-danger me-2"></i>HeartCam</a
+        >
+
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarNav"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav me-auto"></ul>
+
+          <div class="d-flex align-items-center flex-wrap">
+            <button
+              class="btn btn-outline-light btn-sm"
+              data-bs-toggle="modal"
+              data-bs-target="#modalMetodologia"
+            >
+              <i class="bi bi-cpu me-1"></i>Metodologia
+            </button>
+            <button
+              class="btn btn-outline-light btn-sm"
+              data-bs-toggle="modal"
+              data-bs-target="#modalOrientacoes"
+            >
+              <i class="bi bi-journal-text me-1"></i>Orientações
+            </button>
+            <button
+              class="btn btn-outline-light btn-sm me-3"
+              data-bs-toggle="modal"
+              data-bs-target="#modalSobre"
+            >
+              <i class="bi bi-info-circle me-1"></i>Sobre
+            </button>
+
+            <span class="navbar-text text-light mt-2 mt-lg-0" id="status-badge">
+              <span class="badge bg-secondary">Desconectado</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container">
+      <div class="row g-4 mb-4">
+        <div class="col-lg-5">
+          <div class="card h-100">
+            <div
+              class="card-header d-flex justify-content-between align-items-center"
+            >
+              <h6 class="m-0"><i class="bi bi-camera-video me-2"></i>Câmera</h6>
+              <img id="roi-preview" src="" alt="ROI Gray" />
+            </div>
+            <div class="card-body p-2">
+              <div class="video-wrapper">
+                <video id="user-video" autoplay playsinline muted></video>
+                <canvas id="overlay-canvas" width="640" height="480"></canvas>
+              </div>
+              <canvas
+                id="frame-canvas"
+                width="640"
+                height="480"
+                class="d-none"
+              ></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-7">
+          <div class="row g-4">
+            <div class="col-md-6">
+              <div
+                class="card text-center p-4 h-100 d-flex flex-column justify-content-center align-items-center"
+              >
+                <h6 class="text-muted text-uppercase ls-1">
+                  Frequência Cardíaca
+                </h6>
+                <div id="bpm-value" class="bpm-value">--</div>
+                <span class="text-muted">BPM</span>
+                <p id="status-msg" class="mt-3 badge bg-dark text-wrap">
+                  Aguardando câmera...
+                </p>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="card h-100">
+                <div class="card-header">
+                  <h6 class="m-0">
+                    <i class="bi bi-sliders me-2"></i>Visualização
+                  </h6>
+                </div>
+                <div class="card-body">
+                  <div class="form-check form-switch mb-3">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="toggle-fft"
+                      checked
+                    />
+                    <label class="form-check-label" for="toggle-fft"
+                      >Espectro (FFT/PSD)</label
+                    >
+                  </div>
+                  <div class="form-check form-switch mb-3">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="toggle-raw"
+                    />
+                    <label class="form-check-label" for="toggle-raw"
+                      >Sinal Bruto (Raw)</label
+                    >
+                  </div>
+                  <div class="form-check form-switch">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="toggle-filtered"
+                    />
+                    <label class="form-check-label" for="toggle-filtered"
+                      >Sinal Filtrado (Pulse)</label
+                    >
+                  </div>
+                  <div class="form-check form-switch">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="toggle-roi"
+                    />
+                    <label class="form-check-label" for="toggle-roi"
+                      >Região de interesse</label
+                    >
+                  </div>
+                  <hr />
+                  <div
+                    class="mt-4 p-2 border border-secondary rounded bg-dark"
+                    style="font-size: 0.75rem; color: #aaa"
+                  >
+                    <i class="bi bi-exclamation-triangle text-warning me-1"></i>
+                    <strong>Aviso:</strong> Este aplicativo é uma demonstração
+                    experimental. Os valores apresentados são estimativas e
+                    podem sofrer interferência de luz e movimento.
+                    <b>Não utilize para diagnóstico médico. </b>
+                    <a
+                      class="disclaimer-link"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modalMetodologia"
+                      >Saiba mais &raquo;</a
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-12" id="card-fft">
+          <div class="card">
+            <div class="card-header bg-dark text-success border-success">
+              <i class="bi bi-bar-chart-line me-2"></i>Densidade Espectral de
+              Potência (FFT)
+            </div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas id="chartFFT"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6 d-none" id="card-raw">
+          <div class="card">
+            <div class="card-header text-warning">
+              <i class="bi bi-activity me-2"></i>Sinal Bruto (Intensidade de
+              Luz)
+            </div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas id="chartRaw"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6 d-none" id="card-filtered">
+          <div class="card">
+            <div class="card-header text-info">
+              <i class="bi bi-heart-pulse me-2"></i>Sinal Filtrado (Onda de
+              Pulso)
+            </div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas id="chartFiltered"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="modal fade"
+      id="modalMetodologia"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark border-secondary">
+          <div class="modal-header border-secondary">
+            <h5 class="modal-title">
+              <i class="bi bi-cpu me-2"></i>Metodologia Científica
+            </h5>
+            <button
+              type="button"
+              class="btn-close btn-close-white"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <h6 class="text-success">Como funciona?</h6>
+            <p>
+              Este sistema utiliza uma técnica de Visão Computacional chamada
+              <strong>Fotopletismografia Remota (rPPG)</strong>. O processo
+              ocorre em três etapas:
+            </p>
+            <ol>
+              <li>
+                <strong>Detecção Facial:</strong> Utilizamos o algoritmo
+                <em>Haar Cascade</em> para localizar o rosto e isolar a região
+                da testa, onde a pele é mais fina e vascularizada.
+              </li>
+              <li>
+                <strong>Extração do Sinal:</strong> A cada batimento cardíaco, o
+                volume de sangue no rosto muda sutilmente, alterando a absorção
+                de luz (especialmente no canal verde da câmera). O sistema
+                captura essas micro-variações de brilho imperceptíveis a olho
+                nu.
+              </li>
+              <li>
+                <strong>Processamento FFT:</strong> O sinal bruto passa por uma
+                <em>Transformada Rápida de Fourier (FFT)</em>. Isso converte o
+                sinal do domínio do tempo para o domínio da frequência,
+                permitindo isolar a frequência dominante (o pico no gráfico) que
+                corresponde ao seu BPM.
+              </li>
+            </ol>
+            <div class="alert alert-warning mt-3">
+              <small
+                ><strong>Nota Técnica:</strong> O algoritmo implementa um filtro
+                <em>Bandpass</em> para considerar apenas frequências
+                biologicamente possíveis para humanos (entre 60 e 120
+                BPM).</small
+              >
+            </div>
+          </div>
+          <div class="modal-footer border-secondary">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="modalSobre" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content bg-dark border-secondary">
+          <div class="modal-header border-secondary">
+            <h5 class="modal-title">
+              <i class="bi bi-info-circle me-2"></i>Sobre o Projeto
+            </h5>
+            <button
+              type="button"
+              class="btn-close btn-close-white"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <p>
+              O <strong>HeartCam</strong> é uma prova de conceito desenvolvida
+              para demonstrar o poder do processamento de sinais em tempo real
+              via Web.
+            </p>
+            <p>
+              Utilizando Python (Flask/OpenCV) no backend para cálculos pesados
+              e JavaScript no frontend para captura de vídeo, o sistema processa
+              frames via WebSocket para garantir baixa latência.
+            </p>
+            <hr class="border-secondary" />
+            <p class="small text-muted mb-0">
+              Desenvolvido com Flask, SocketIO, Chart.js e OpenCV.
+            </p>
+          </div>
+          <div class="modal-footer border-secondary">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="modal fade"
+      id="modalOrientacoes"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content bg-dark border-secondary">
+          <div class="modal-header border-secondary">
+            <h5 class="modal-title">
+              <i class="bi bi-journal-text me-2"></i>Orientações de Uso
+            </h5>
+            <button
+              type="button"
+              class="btn-close btn-close-white"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <ul class="list-group list-group-flush list-group-dark">
+              <li class="list-group-item bg-transparent text-light">
+                <i class="bi bi-lightbulb text-warning me-2"></i
+                ><strong>Iluminação:</strong> Use o sistema em um ambiente bem
+                iluminado. A luz deve incidir no seu rosto de forma uniforme.
+              </li>
+              <li class="list-group-item bg-transparent text-light">
+                <i class="bi bi-person-bounding-box text-info me-2"></i
+                ><strong>Estabilidade:</strong> Mantenha o rosto parado. Falar
+                ou mexer a cabeça interfere na leitura da luz.
+              </li>
+              <li class="list-group-item bg-transparent text-light">
+                <i class="bi bi-eyeglasses text-secondary me-2"></i
+                ><strong>Acessórios:</strong> Óculos grossos ou franjas cobrindo
+                a testa podem impedir a detecção correta.
+              </li>
+              <li class="list-group-item bg-transparent text-light">
+                <i class="bi bi-hourglass-split text-success me-2"></i
+                ><strong>Paciência:</strong> Aguarde cerca de 5 a 10 segundos
+                após o rosto ser detectado para o gráfico estabilizar.
+              </li>
+            </ul>
+          </div>
+          <div class="modal-footer border-secondary">
+            <button
+              type="button"
+              class="btn btn-primary"
+              data-bs-dismiss="modal"
+            >
+              Entendi
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // --- Configuração SocketIO ---
+      const socket = io();
+      const statusBadge = document.querySelector("#status-badge span");
+
+      socket.on("connect", () => {
+        statusBadge.className = "badge bg-success";
+        statusBadge.innerText = "Conectado";
+      });
+      socket.on("disconnect", () => {
+        statusBadge.className = "badge bg-danger";
+        statusBadge.innerText = "Desconectado";
+      });
+
+      // --- Elementos DOM ---
+      const videoElement = document.getElementById("user-video");
+      const canvasElement = document.getElementById("frame-canvas");
+      const overlayCanvas = document.getElementById("overlay-canvas");
+      const overlayCtx = overlayCanvas.getContext("2d");
+      const context = canvasElement.getContext("2d");
+      const bpmEl = document.getElementById("bpm-value");
+      const statusText = document.getElementById("status-msg");
+      const roiPreview = document.getElementById("roi-preview");
+
+      // --- Toggles Lógica ---
+      const setupToggle = (id, targetId) => {
+        const el = document.getElementById(targetId);
+        document.getElementById(id).addEventListener("change", (e) => {
+          if (e.target.checked) el.classList.remove("d-none");
+          else el.classList.add("d-none");
+        });
+      };
+      setupToggle("toggle-fft", "card-fft");
+      setupToggle("toggle-raw", "card-raw");
+      setupToggle("toggle-filtered", "card-filtered");
+
+      document.getElementById("toggle-roi").addEventListener("change", (e) => {
+        roiPreview.style.display = e.target.checked ? "block" : "none";
+      });
+
+      // --- Configuração de Gráficos (Chart.js) ---
+      const createLineChart = (ctx, label, color, isTimeBased = false) => {
+        return new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: label,
+                data: [],
+                borderColor: color,
+                borderWidth: 2,
+                pointRadius: 0,
+                tension: 0.4,
+                fill: false,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            scales: {
+              x: { display: !isTimeBased, grid: { color: "#333" } },
+              y: { display: false, grid: { color: "#333" } },
+            },
+            plugins: { legend: { display: false } },
+          },
+        });
+      };
+
+      const chartFFT = createLineChart(
+        document.getElementById("chartFFT"),
+        "Magnitude",
+        "#00ff00",
+      );
+      const chartRaw = createLineChart(
+        document.getElementById("chartRaw"),
+        "Intensidade",
+        "#ffc107",
+        true,
+      );
+      const chartFiltered = createLineChart(
+        document.getElementById("chartFiltered"),
+        "Pulso",
+        "#0dcaf0",
+        true,
+      );
+
+      const MAX_DATA_POINTS = 100;
+
+      function updateRealTimeChart(chart, value) {
+        chart.data.labels.push("");
+        chart.data.datasets[0].data.push(value);
+
+        if (chart.data.labels.length > MAX_DATA_POINTS) {
+          chart.data.labels.shift();
+          chart.data.datasets[0].data.shift();
+        }
+        chart.update("none");
+      }
+
+      // --- Camera e Loop de Envio ---
+      navigator.mediaDevices
+        .getUserMedia({ video: { width: 640, height: 480 } })
+        .then((stream) => {
+          videoElement.srcObject = stream;
+          statusText.innerText = "Câmera ativa. Processando...";
+          statusText.className = "mt-3 badge bg-primary";
+          startSendingFrames();
+        })
+        .catch((err) => {
+          statusText.innerText = "Erro: Câmera não permitida";
+          statusText.className = "mt-3 badge bg-danger";
+        });
+
+      function startSendingFrames() {
+        setInterval(() => {
+          context.drawImage(videoElement, 0, 0, 640, 480);
+          canvasElement.toBlob(
+            (blob) => {
+              if (blob) socket.emit("process_frame", { image: blob });
+            },
+            "image/jpeg",
+            0.7,
+          );
+        }, 66);
+      }
+
+      // --- Recebimento de Dados ---
+      socket.on("data_update", (msg) => {
+        overlayCtx.clearRect(0, 0, 640, 480);
+
+        if (msg.face_detected) {
+          bpmEl.innerText = msg.bpm;
+          statusText.innerText = "Monitorando...";
+          statusText.className = "mt-3 badge bg-success";
+
+          if (msg.roi_rect) {
+            const [x, y, w, h] = msg.roi_rect;
+            overlayCtx.beginPath();
+            overlayCtx.lineWidth = 3;
+            overlayCtx.strokeStyle = "#00ff00";
+            overlayCtx.rect(x, y, w, h);
+            overlayCtx.stroke();
+          }
+
+          if (msg.roi_image) {
+            roiPreview.src = "data:image/jpeg;base64," + msg.roi_image;
+          }
+        } else {
+          statusText.innerText = "Procurando rosto...";
+          statusText.className = "mt-3 badge bg-warning text-dark";
+        }
+
+        if (msg.chart_data && msg.chart_data.x.length > 0) {
+          chartFFT.data.labels = msg.chart_data.x.map((v) => Math.round(v));
+          chartFFT.data.datasets[0].data = msg.chart_data.y;
+          chartFFT.update("none");
+        }
+
+        if (msg.face_detected) {
+          if (
+            !document.getElementById("card-raw").classList.contains("d-none")
+          ) {
+            updateRealTimeChart(chartRaw, msg.raw_val);
+          }
+          if (
+            !document
+              .getElementById("card-filtered")
+              .classList.contains("d-none")
+          ) {
+            updateRealTimeChart(chartFiltered, msg.filtered_val);
+          }
+        }
+      });
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
