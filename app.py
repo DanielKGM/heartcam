@@ -5,6 +5,7 @@ from flask import Flask, render_template, request # <--- ADICIONADO 'request'
 from flask_socketio import SocketIO, emit, disconnect
 from monitor import HeartRateMonitor
 import sys
+import os
 
 # Garante que o print saia corretamente no terminal do Windows
 sys.stdout.reconfigure(encoding='utf-8')
@@ -59,5 +60,7 @@ def handle_process_frame(data):
             emit('data_update', result)
 
 if __name__ == '__main__':
-    print("Servidor iniciado na porta 5000. Aguardando conexões...")
-    socketio.run(app, host='0.0.0.0', port=5000)
+    # Pega a porta do ambiente (Koyeb) ou usa 5000 se for local
+    port = int(os.environ.get("PORT", 5000))
+    print(f"Servidor iniciado na porta {port}. Aguardando conexões...")
+    socketio.run(app, host='0.0.0.0', port=port)

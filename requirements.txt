@@ -2,5 +2,6 @@ flask
 flask-socketio
 gevent
 gevent-websocket
-opencv-python
+opencv-python-headless
 numpy
+gunicorn
