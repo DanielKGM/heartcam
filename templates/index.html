@@ -164,7 +164,7 @@
             <div class="card-body p-2">
               <div class="video-wrapper">
                 <video id="user-video" autoplay playsinline muted></video>
-                <canvas id="overlay-canvas" width="640" height="480"></canvas>
+                <canvas id="overlay-canvas" width="320" height="240"></canvas>
               </div>
               <canvas
                 id="frame-canvas"
@@ -583,7 +583,7 @@
 
       // --- Camera e Loop de Envio ---
       navigator.mediaDevices
-        .getUserMedia({ video: { width: 640, height: 480 } })
+        .getUserMedia({ video: { width: 320, height: 240 } })
         .then((stream) => {
           videoElement.srcObject = stream;
           statusText.innerText = "Câmera ativa. Processando...";
@@ -610,7 +610,7 @@
 
       // --- Recebimento de Dados ---
       socket.on("data_update", (msg) => {
-        overlayCtx.clearRect(0, 0, 640, 480);
+        overlayCtx.clearRect(0, 0, 320, 240);
 
         if (msg.face_detected) {
           bpmEl.innerText = msg.bpm;
