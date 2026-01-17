@@ -113,7 +113,7 @@ class HeartRateMonitor:
         if self.frame_counter % self.detection_frequency == 0 or not self.face_detected:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             detected = list(self.face_cascade.detectMultiScale(
-                gray, scaleFactor=1.3, min_neighbors=4, minSize=(40, 40), flags=cv2.CASCADE_SCALE_IMAGE
+                gray, scaleFactor=1.3, minNeighbors=4, minSize=(40, 40), flags=cv2.CASCADE_SCALE_IMAGE
             ))
             
             if len(detected) > 0:
