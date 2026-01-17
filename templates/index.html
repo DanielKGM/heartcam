@@ -111,6 +111,13 @@
                     <i class="bi bi-fullscreen-exit"></i>
                   </button>
 
+                  <img
+                    id="hud-roi-preview"
+                    src=""
+                    alt="ROI HUD"
+                    class="hud-roi-preview"
+                  />
+
                   <div class="hud-top-left">
                     <span
                       id="hud-socket-status"
@@ -128,15 +135,17 @@
                   </div>
 
                   <div class="hud-bottom-right">
-                    <div class="mini-chart-box">
+                    <div class="mini-chart-box" id="hud-box-fft">
                       <small>FFT</small>
                       <canvas id="miniChartFFT"></canvas>
                     </div>
-                    <div class="mini-chart-box">
+
+                    <div class="mini-chart-box" id="hud-box-raw">
                       <small>Raw</small>
                       <canvas id="miniChartRaw"></canvas>
                     </div>
-                    <div class="mini-chart-box">
+
+                    <div class="mini-chart-box" id="hud-box-filtered">
                       <small>Pulse</small>
                       <canvas id="miniChartFiltered"></canvas>
                     </div>

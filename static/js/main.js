@@ -1,114 +1,144 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const socket = io();
-  const socketStatusBadge = document.getElementById("socket-status");
-  const hudSocketStatus = document.getElementById("hud-socket-status"); // NOVO
+  // =================================================================
+  // 1. GERENCIAMENTO DE UI E SELETORES
+  // =================================================================
 
-  // Atualiza status em ambos os lugares (Normal e HUD)
-  const updateStatus = (isConnected) => {
-    const text = isConnected ? "Conectado" : "Desconectado";
-    const cls = isConnected ? "badge bg-success" : "badge bg-danger";
+  // Agrupamos elementos que têm a mesma função (Dashboard + HUD)
+  const UI = {
+    video: document.getElementById("user-video"),
+    canvasFrame: document.getElementById("frame-canvas"),
+    canvasOverlay: document.getElementById("overlay-canvas"),
+    ctxOverlay: document.getElementById("overlay-canvas").getContext("2d"),
+    ctxFrame: document.getElementById("frame-canvas").getContext("2d"),
 
-    socketStatusBadge.className = cls;
-    socketStatusBadge.innerText = text;
+    // Elementos duplicados (Dashboard e HUD)
+    bpm: [
+      document.getElementById("bpm-value"),
+      document.getElementById("hud-bpm-value"),
+    ],
+    socketStatus: [
+      document.getElementById("socket-status"),
+      document.getElementById("hud-socket-status"),
+    ],
+    cameraStatus: [
+      document.getElementById("status-msg"),
+      document.getElementById("hud-camera-status"),
+    ],
+    roiPreview: [
+      document.getElementById("roi-preview"),
+      document.getElementById("hud-roi-preview"),
+    ],
 
-    // HUD Status (com classes extras de posicionamento se necessário)
-    hudSocketStatus.className = cls + " mb-1 d-block";
-    hudSocketStatus.innerText = text;
+    // Fullscreen Controls
+    fullscreen: {
+      btnExpand: document.getElementById("btn-expand-camera"),
+      btnExit: document.getElementById("btn-exit-fullscreen"),
+      wrapper: document.getElementById("main-video-wrapper"),
+      hud: document.getElementById("camera-hud"),
+      toggleRoi: document.getElementById("toggle-roi"),
+    },
+
+    // Cards (para toggles)
+    cards: {
+      fft: document.getElementById("card-fft"),
+      raw: document.getElementById("card-raw"),
+      filtered: document.getElementById("card-filtered"),
+    },
+
+    // HUD Boxes (para toggles)
+    hudBoxes: {
+      fft: document.getElementById("hud-box-fft"),
+      raw: document.getElementById("hud-box-raw"),
+      filtered: document.getElementById("hud-box-filtered"),
+    },
   };
 
-  socket.on("connect", () => updateStatus(true));
-  socket.on("disconnect", () => updateStatus(false));
-
-  // --- Elementos DOM ---
-  const videoElement = document.getElementById("user-video");
-  const canvasElement = document.getElementById("frame-canvas");
-  const overlayCanvas = document.getElementById("overlay-canvas");
-  const overlayCtx = overlayCanvas.getContext("2d");
-  const context = canvasElement.getContext("2d");
-
-  const bpmEl = document.getElementById("bpm-value");
-  const hudBpmEl = document.getElementById("hud-bpm-value"); // NOVO
-
-  const statusText = document.getElementById("status-msg");
-  const hudStatusText = document.getElementById("hud-camera-status");
-
-  const roiPreview = document.getElementById("roi-preview");
-
-  // Elementos de Fullscreen
-  const btnExpand = document.getElementById("btn-expand-camera");
-  const btnExit = document.getElementById("btn-exit-fullscreen");
-  const videoWrapper = document.getElementById("main-video-wrapper");
-  const cameraHud = document.getElementById("camera-hud");
-  const body = document.body;
-
-  // --- Lógica de Fullscreen ---
-  let isFullscreen = false;
-
-  const toggleFullscreen = (active) => {
-    isFullscreen = active;
-
-    if (isFullscreen) {
-      body.classList.add("fullscreen-active");
-      videoWrapper.classList.add("fullscreen");
-      cameraHud.classList.remove("d-none");
-      btnExpand.innerHTML = '<i class="bi bi-arrows-collapse"></i>';
-
-      // Força resize dos gráficos mini
-      miniChartFFT.resize();
-      miniChartRaw.resize();
-      miniChartFiltered.resize();
-    } else {
-      body.classList.remove("fullscreen-active");
-      videoWrapper.classList.remove("fullscreen");
-      cameraHud.classList.add("d-none");
-      btnExpand.innerHTML = '<i class="bi bi-fullscreen"></i>';
-    }
+  // Estado Global
+  const STATE = {
+    isFullscreen: false,
+    showRoi: true,
+    maxPoints: 100,
+    miniMaxPoints: 50,
   };
 
-  btnExpand.addEventListener("click", () => {
-    toggleFullscreen(!isFullscreen);
-  });
+  // =================================================================
+  // 2. FUNÇÕES AUXILIARES DE UI (HELPERS)
+  // =================================================================
 
-  btnExit.addEventListener("click", () => {
-    toggleFullscreen(false);
-  });
+  // Atualiza texto e classe de uma lista de elementos
+  const updateBadges = (elements, text, cssClass) => {
+    elements.forEach((el) => {
+      if (el) {
+        el.innerText = text;
+        // Preserva classes de layout (d-block, mb-1) se existirem, substitui as de cor
+        const layoutClasses = Array.from(el.classList).filter(
+          (c) => !c.startsWith("bg-") && c !== "badge",
+        );
+        el.className = `badge ${cssClass} ${layoutClasses.join(" ")}`;
+      }
+    });
+  };
 
-  // Esc para sair do fullscreen
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && isFullscreen) {
-      btnExpand.click();
-    }
-  });
+  // Atualiza textos simples em lista de elementos
+  const updateText = (elements, text) => {
+    elements.forEach((el) => {
+      if (el) el.innerText = text;
+    });
+  };
 
-  // --- Toggles Lógica (Mantém igual) ---
-  const setupToggle = (id, targetId) => {
-    const el = document.getElementById(targetId);
-    if (el) {
-      document.getElementById(id).addEventListener("change", (e) => {
-        if (e.target.checked) el.classList.remove("d-none");
-        else el.classList.add("d-none");
+  // Atualiza imagens SRC e visibilidade
+  const updateImages = (elements, base64) => {
+    const src = "data:image/jpeg;base64," + base64;
+    elements.forEach((el) => {
+      if (el) el.src = src;
+    });
+  };
+
+  // Sincroniza visibilidade (Toggle -> Card -> HUD Box)
+  const syncVisibility = (toggleId, ...targetElements) => {
+    const toggle = document.getElementById(toggleId);
+    if (!toggle) return;
+
+    const apply = () => {
+      targetElements.forEach((el) => {
+        if (el)
+          toggle.checked
+            ? el.classList.remove("d-none")
+            : el.classList.add("d-none");
       });
-    }
+    };
+
+    toggle.addEventListener("change", apply);
+    apply(); // Estado inicial
   };
-  setupToggle("toggle-fft", "card-fft");
-  setupToggle("toggle-raw", "card-raw");
-  setupToggle("toggle-filtered", "card-filtered");
 
-  document.getElementById("toggle-roi").addEventListener("change", (e) => {
-    roiPreview.style.display = e.target.checked ? "block" : "none";
-  });
+  // =================================================================
+  // 3. CONFIGURAÇÃO DE SOCKET E STATUS
+  // =================================================================
+  const socket = io();
 
-  // --- CHART.JS CONFIGURATIONS ---
+  socket.on("connect", () =>
+    updateBadges(UI.socketStatus, "Conectado", "bg-success"),
+  );
+  socket.on("disconnect", () =>
+    updateBadges(UI.socketStatus, "Desconectado", "bg-danger"),
+  );
 
-  // Helper para gráficos normais
-  const createLineChart = (ctx, label, color, isTimeBased = false) => {
+  // =================================================================
+  // 4. CONFIGURAÇÃO DOS GRÁFICOS (CHART.JS)
+  // =================================================================
+
+  const createChart = (ctxId, color, isMini = false, isTimeBased = false) => {
+    const ctx = document.getElementById(ctxId);
+    if (!ctx) return null;
+
     return new Chart(ctx, {
       type: "line",
       data: {
         labels: [],
         datasets: [
           {
-            label: label,
+            label: isMini ? "" : "Dados",
             data: [],
             borderColor: color,
             borderWidth: 2,
@@ -123,80 +153,31 @@ document.addEventListener("DOMContentLoaded", () => {
         maintainAspectRatio: false,
         animation: false,
         scales: {
-          x: { display: !isTimeBased, grid: { color: "#333" } },
+          x: { display: !isMini && !isTimeBased, grid: { color: "#333" } },
           y: { display: false, grid: { color: "#333" } },
         },
-        plugins: { legend: { display: false } },
-      },
-    });
-  };
-
-  // Helper para MINI GRÁFICOS (HUD) - Minimalistas (sem eixos, sem grid)
-  const createMiniChart = (ctx, color) => {
-    return new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: [],
-        datasets: [
-          {
-            data: [],
-            borderColor: color,
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.4,
-            fill: false,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        scales: { x: { display: false }, y: { display: false } }, // Sem eixos
-        plugins: { legend: { display: false }, tooltip: { enabled: false } }, // Sem tooltip
+        plugins: { legend: { display: false }, tooltip: { enabled: !isMini } },
         layout: { padding: 0 },
       },
     });
   };
 
-  // Gráficos Principais
-  const chartFFT = createLineChart(
-    document.getElementById("chartFFT"),
-    "Magnitude",
-    "#00ff00",
-  );
-  const chartRaw = createLineChart(
-    document.getElementById("chartRaw"),
-    "Intensidade",
-    "#ffc107",
-    true,
-  );
-  const chartFiltered = createLineChart(
-    document.getElementById("chartFiltered"),
-    "Pulso",
-    "#0dcaf0",
-    true,
-  );
+  const charts = {
+    main: {
+      fft: createChart("chartFFT", "#00ff00"),
+      raw: createChart("chartRaw", "#ffc107", false, true),
+      filtered: createChart("chartFiltered", "#0dcaf0", false, true),
+    },
+    mini: {
+      fft: createChart("miniChartFFT", "#00ff00", true),
+      raw: createChart("miniChartRaw", "#ffc107", true, true),
+      filtered: createChart("miniChartFiltered", "#0dcaf0", true, true),
+    },
+  };
 
-  // Gráficos Mini (HUD)
-  const miniChartFFT = createMiniChart(
-    document.getElementById("miniChartFFT"),
-    "#00ff00",
-  );
-  const miniChartRaw = createMiniChart(
-    document.getElementById("miniChartRaw"),
-    "#ffc107",
-  );
-  const miniChartFiltered = createMiniChart(
-    document.getElementById("miniChartFiltered"),
-    "#0dcaf0",
-  );
-
-  const MAX_DATA_POINTS = 100;
-  const MINI_MAX_POINTS = 50; // Menos pontos para os minis para não poluir
-
-  // Função para atualizar gráficos de tempo (Raw e Filtered)
-  function updateRealTimeChart(chart, value, maxPoints) {
+  // Helper para atualizar dados de tempo real
+  const pushChartData = (chart, value, maxPoints) => {
+    if (!chart) return;
     chart.data.labels.push("");
     chart.data.datasets[0].data.push(value);
     if (chart.data.labels.length > maxPoints) {
@@ -204,37 +185,84 @@ document.addEventListener("DOMContentLoaded", () => {
       chart.data.datasets[0].data.shift();
     }
     chart.update("none");
+  };
+
+  // =================================================================
+  // 5. LÓGICA DE FULLSCREEN E TOGGLES
+  // =================================================================
+
+  const toggleFullscreen = (active) => {
+    STATE.isFullscreen = active;
+    const { body } = document;
+    const { wrapper, hud, btnExpand } = UI.fullscreen;
+
+    if (active) {
+      body.classList.add("fullscreen-active");
+      wrapper.classList.add("fullscreen");
+      hud.classList.remove("d-none");
+      btnExpand.innerHTML = '<i class="bi bi-arrows-collapse"></i>';
+
+      // Resize charts
+      Object.values(charts.mini).forEach((c) => c?.resize());
+    } else {
+      body.classList.remove("fullscreen-active");
+      wrapper.classList.remove("fullscreen");
+      hud.classList.add("d-none");
+      btnExpand.innerHTML = '<i class="bi bi-arrows-fullscreen"></i>';
+    }
+  };
+
+  UI.fullscreen.btnExpand.addEventListener("click", () =>
+    toggleFullscreen(!STATE.isFullscreen),
+  );
+  UI.fullscreen.btnExit.addEventListener("click", () =>
+    toggleFullscreen(false),
+  );
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && STATE.isFullscreen) toggleFullscreen(false);
+  });
+
+  // Configuração dos Toggles
+  syncVisibility("toggle-fft", UI.cards.fft, UI.hudBoxes.fft);
+  syncVisibility("toggle-raw", UI.cards.raw, UI.hudBoxes.raw);
+  syncVisibility("toggle-filtered", UI.cards.filtered, UI.hudBoxes.filtered);
+
+  // Toggle ROI específico (afeta variável de estado + visibilidade)
+  if (UI.fullscreen.toggleRoi) {
+    UI.fullscreen.toggleRoi.addEventListener("change", (e) => {
+      STATE.showRoi = e.target.checked;
+      UI.roiPreview.forEach((el) => {
+        if (el) el.style.display = STATE.showRoi ? "block" : "none";
+      });
+    });
+    // Trigger inicial
+    UI.fullscreen.toggleRoi.dispatchEvent(new Event("change"));
   }
 
-  // --- Camera e Loop de Envio ---
+  // =================================================================
+  // 6. CÂMERA E LOOP DE ENVIO
+  // =================================================================
+
   navigator.mediaDevices
     .getUserMedia({ video: { width: 320, height: 240 } })
     .then((stream) => {
-      videoElement.srcObject = stream;
-
-      const msg = "Câmera ativa. Processando...";
-      statusText.innerText = msg;
-      statusText.className = "badge bg-primary";
-
-      hudStatusText.innerText = msg;
-      hudStatusText.className = "badge bg-primary d-block"; // HUD
-
+      UI.video.srcObject = stream;
+      updateBadges(
+        UI.cameraStatus,
+        "Câmera ativa. Processando...",
+        "bg-primary",
+      );
       startSendingFrames();
     })
     .catch((err) => {
       console.error(err);
-      const msg = "Erro: Câmera não permitida";
-      statusText.innerText = msg;
-      statusText.className = "badge bg-danger";
-
-      hudStatusText.innerText = msg;
-      hudStatusText.className = "badge bg-danger d-block"; // HUD
+      updateBadges(UI.cameraStatus, "Erro: Câmera não permitida", "bg-danger");
     });
 
   function startSendingFrames() {
     setInterval(() => {
-      context.drawImage(videoElement, 0, 0, 320, 240);
-      canvasElement.toBlob(
+      UI.ctxFrame.drawImage(UI.video, 0, 0, 320, 240);
+      UI.canvasFrame.toBlob(
         (blob) => {
           if (blob) socket.emit("process_frame", { image: blob });
         },
@@ -244,86 +272,86 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 100);
   }
 
-  // --- Recebimento de Dados ---
+  // =================================================================
+  // 7. PROCESSAMENTO DE DADOS (SOCKET) - LÓGICA CENTRAL
+  // =================================================================
+
   socket.on("data_update", (msg) => {
-    // Limpa overlay (lembre-se de ajustar para resolução de tela cheia se necessário, mas o canvas estica via CSS)
-    overlayCtx.clearRect(0, 0, 320, 240);
+    // 1. Limpa Overlay
+    UI.ctxOverlay.clearRect(0, 0, 320, 240);
 
-    if (msg.face_detected) {
-      // Atualiza BPM Principal e HUD
-      bpmEl.innerText = msg.bpm;
-      hudBpmEl.innerText = msg.bpm;
-
-      // Atualiza Texto Status
-      const stTxt = "Monitorando...";
-      const stCls = "badge bg-success";
-      statusText.innerText = stTxt;
-      statusText.className = stCls;
-
-      hudStatusText.innerText = stTxt;
-      hudStatusText.className = stCls + " d-block";
-
-      if (msg.roi_rect) {
-        const [x, y, w, h] = msg.roi_rect;
-        overlayCtx.beginPath();
-        overlayCtx.lineWidth = 3;
-        overlayCtx.strokeStyle = "#00ff00";
-        overlayCtx.rect(x, y, w, h);
-        overlayCtx.stroke();
-      }
-
-      if (msg.roi_image) {
-        roiPreview.src = "data:image/jpeg;base64," + msg.roi_image;
-      }
-    } else {
-      const stTxt = "Procurando rosto...";
-      const stCls = "badge bg-warning text-dark";
-      statusText.innerText = stTxt;
-      statusText.className = stCls;
-
-      hudStatusText.innerText = stTxt;
-      hudStatusText.className = stCls + " d-block";
+    // 2. Atualiza Imagem ROI (Independente de detecção facial)
+    if (msg.roi_image) {
+      updateImages(UI.roiPreview, msg.roi_image);
     }
 
-    // --- ATUALIZAÇÃO DOS GRÁFICOS ---
+    // 3. Lógica de Detecção
+    if (msg.face_detected) {
+      // Atualiza textos
+      updateText(UI.bpm, msg.bpm);
+      updateBadges(UI.cameraStatus, "Monitorando...", "bg-success");
 
-    // 1. FFT (Vetor Completo)
+      // Desenha Retângulo Verde (se habilitado)
+      if (msg.roi_rect && STATE.showRoi) {
+        const [x, y, w, h] = msg.roi_rect;
+        UI.ctxOverlay.beginPath();
+        UI.ctxOverlay.lineWidth = 3;
+        UI.ctxOverlay.strokeStyle = "#00ff00";
+        UI.ctxOverlay.rect(x, y, w, h);
+        UI.ctxOverlay.stroke();
+      }
+    } else {
+      updateBadges(
+        UI.cameraStatus,
+        "Procurando rosto...",
+        "bg-warning text-dark",
+      );
+    }
+
+    // 4. Atualização dos Gráficos
+
+    // 4.1 FFT (Gráfico completo)
     if (msg.chart_data && msg.chart_data.x.length > 0) {
       const labels = msg.chart_data.x.map((v) => Math.round(v));
 
-      // Gráfico Principal
-      chartFFT.data.labels = labels;
-      chartFFT.data.datasets[0].data = msg.chart_data.y;
-      chartFFT.update("none");
+      // Principal
+      charts.main.fft.data.labels = labels;
+      charts.main.fft.data.datasets[0].data = msg.chart_data.y;
+      charts.main.fft.update("none");
 
-      // Mini Gráfico (Só atualiza se fullscreen estiver ativo para economizar recursos)
-      if (isFullscreen) {
-        miniChartFFT.data.labels = labels;
-        miniChartFFT.data.datasets[0].data = msg.chart_data.y;
-        miniChartFFT.update("none");
+      // Mini (Apenas se fullscreen)
+      if (STATE.isFullscreen) {
+        charts.mini.fft.data.labels = labels;
+        charts.mini.fft.data.datasets[0].data = msg.chart_data.y;
+        charts.mini.fft.update("none");
       }
     }
 
-    // 2. Tempo Real (Raw e Filtered)
+    // 4.2 Tempo Real (Raw e Filtered)
     if (msg.face_detected) {
-      // Principal
-      if (!document.getElementById("card-raw").classList.contains("d-none")) {
-        updateRealTimeChart(chartRaw, msg.raw_val, MAX_DATA_POINTS);
-      }
-      if (
-        !document.getElementById("card-filtered").classList.contains("d-none")
-      ) {
-        updateRealTimeChart(chartFiltered, msg.filtered_val, MAX_DATA_POINTS);
-      }
+      // Verifica se o card está visível antes de desenhar (Economia de CPU)
+      const isRawVisible = !UI.cards.raw.classList.contains("d-none");
+      const isFilteredVisible = !UI.cards.filtered.classList.contains("d-none");
 
-      // Mini Gráficos (HUD)
-      if (isFullscreen) {
-        updateRealTimeChart(miniChartRaw, msg.raw_val, MINI_MAX_POINTS);
-        updateRealTimeChart(
-          miniChartFiltered,
-          msg.filtered_val,
-          MINI_MAX_POINTS,
-        );
+      if (isRawVisible)
+        pushChartData(charts.main.raw, msg.raw_val, STATE.maxPoints);
+      if (isFilteredVisible)
+        pushChartData(charts.main.filtered, msg.filtered_val, STATE.maxPoints);
+
+      if (STATE.isFullscreen) {
+        // Verifica se os boxes do HUD estão visíveis
+        const isMiniRawVisible = !UI.hudBoxes.raw.classList.contains("d-none");
+        const isMiniFilteredVisible =
+          !UI.hudBoxes.filtered.classList.contains("d-none");
+
+        if (isMiniRawVisible)
+          pushChartData(charts.mini.raw, msg.raw_val, STATE.miniMaxPoints);
+        if (isMiniFilteredVisible)
+          pushChartData(
+            charts.mini.filtered,
+            msg.filtered_val,
+            STATE.miniMaxPoints,
+          );
       }
     }
   });
