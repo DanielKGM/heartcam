@@ -85,19 +85,18 @@ class HeartRateMonitor:
             if frame is None: return None
 
             realHeight, realWidth, _ = frame.shape
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
             # Detecção Facial
-            detected = list(self.face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=4, minSize=(40, 40), flags=cv2.CASCADE_SCALE_IMAGE))
-
-            if len(detected) > 0:
-                detected.sort(key=lambda a: a[-1] * a[-2])
-                current_face = detected[-1]
-                if self.shift(current_face) > 10 or not self.face_detected:
+            if self.frame_counter % self.detection_frequency == 0 or not self.face_detected:
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                detected = list(self.face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=4, minSize=(40, 40), flags=cv2.CASCADE_SCALE_IMAGE))
+                
+                if len(detected) > 0:
+                    detected.sort(key=lambda a: a[-1] * a[-2])
+                    current_face = detected[-1]
+                    # Atualiza a posição
                     self.face_rect = current_face
-                self.face_detected = True
-            else:
-                pass 
+                    self.face_detected = True
 
             roi_coords = None
             roi_output_b64 = None # Mudamos o nome para refletir que é a imagem processada

@@ -289,7 +289,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (msg.roi_rect) {
         const [x, y, w, h] = msg.roi_rect;
         UI.ctxOverlay.beginPath();
-        UI.ctxOverlay.lineWidth = 3;
+        UI.ctxOverlay.lineWidth = 2;
         UI.ctxOverlay.strokeStyle = "#00ff00";
         UI.ctxOverlay.rect(x, y, w, h);
         UI.ctxOverlay.stroke();

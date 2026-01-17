@@ -13,38 +13,70 @@
         ></button>
       </div>
       <div class="modal-body">
-        <h6 class="text-success">Como funciona?</h6>
+        <h6 class="text-success strong">Como funciona?</h6>
         <p>
-          Este sistema utiliza uma técnica de Visão Computacional chamada
-          <strong>Fotopletismografia Remota (rPPG)</strong>. O processo ocorre
-          em três etapas:
+          Este sistema utiliza a técnica de
+          <strong>Fotopletismografia Remota (rPPG)</strong> processada em três
+          etapas principais:
         </p>
+
         <ol>
-          <li>
-            <strong>Detecção Facial:</strong> Utilizamos o algoritmo
-            <em>Haar Cascade</em> para localizar o rosto e isolar a região da
-            testa, onde a pele é mais fina e vascularizada.
+          <li class="mb-2">
+            <strong>Detecção (ROI):</strong> Localização e rastreamento da
+            região da testa utilizando o classificador <em>Haar Cascade</em>.
           </li>
-          <li>
-            <strong>Extração do Sinal:</strong> A cada batimento cardíaco, o
-            volume de sangue no rosto muda sutilmente, alterando a absorção de
-            luz (especialmente no canal verde da câmera). O sistema captura
-            essas micro-variações de brilho imperceptíveis a olho nu.
+          <li class="mb-2">
+            <strong>Extração de Sinal:</strong> Captura das micro-variações de
+            absorção de luz (canal verde) causadas pelo fluxo sanguíneo,
+            imperceptíveis a olho nu.
           </li>
-          <li>
-            <strong>Processamento FFT:</strong> O sinal bruto passa por uma
-            <em>Transformada Rápida de Fourier (FFT)</em>. Isso converte o sinal
-            do domínio do tempo para o domínio da frequência, permitindo isolar
-            a frequência dominante (o pico no gráfico) que corresponde ao seu
-            BPM.
+          <li class="mb-2">
+            <strong>Processamento FFT:</strong> Aplicação da
+            <em>Transformada Rápida de Fourier</em> para converter o sinal
+            temporal em frequência e isolar o BPM dominante.
+          </li>
+          <li class="mb-2">
+            <strong>Limitações:</strong> Estimativa estatística sujeita a ruídos
+            de iluminação e hardware não calibrado. Não possui intervalo de
+            confiança clínico por ausência de <em>Ground Truth</em>.
           </li>
         </ol>
+
         <div class="alert alert-warning mt-3">
-          <small
-            ><strong>Nota Técnica:</strong> O algoritmo implementa um filtro
-            <em>Bandpass</em> para considerar apenas frequências biologicamente
-            possíveis para humanos (entre 60 e 120 BPM).</small
-          >
+          <small>
+            <strong>Nota Técnica:</strong> Implementação de filtro
+            <em>Bandpass</em> restrito a frequências biologicamente viáveis
+            (60-120 BPM).
+          </small>
+        </div>
+
+        <div class="mt-4 border-top border-secondary pt-3">
+          <h6 class="text-light mb-2" style="font-size: 0.9rem">
+            Trabalho Relacionado e Inspiração
+          </h6>
+          <p class="small text-muted mb-2">
+            O algoritmo de magnificação de vídeo utilizado baseia-se em:
+          </p>
+
+          <div class="p-2 rounded bg-black border border-secondary">
+            <p
+              class="small text-secondary mb-0"
+              style="
+                font-family: &quot;Times New Roman&quot;, serif;
+                text-align: left;
+              "
+            >
+              WU, Hao-Yu et al. Eulerian Video Magnification for Revealing
+              Subtle Changes in the World.
+              <strong>ACM Transactions on Graphics (Proc. SIGGRAPH 2012)</strong
+              >, v. 31, n. 4, 2012. Disponível em: &lt;<a
+                href="https://people.csail.mit.edu/mrub/evm/"
+                target="_blank"
+                class="text-info text-decoration-none"
+                >https://people.csail.mit.edu/mrub/evm/</a
+              >&gt;.
+            </p>
+          </div>
         </div>
       </div>
       <div class="modal-footer border-secondary">
