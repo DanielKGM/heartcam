@@ -1,16 +1,23 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // --- Configuração SocketIO ---
   const socket = io();
   const socketStatusBadge = document.getElementById("socket-status");
+  const hudSocketStatus = document.getElementById("hud-socket-status"); // NOVO
 
-  socket.on("connect", () => {
-    socketStatusBadge.className = "badge bg-success";
-    socketStatusBadge.innerText = "Conectado";
-  });
-  socket.on("disconnect", () => {
-    socketStatusBadge.className = "badge bg-danger";
-    socketStatusBadge.innerText = "Desconectado";
-  });
+  // Atualiza status em ambos os lugares (Normal e HUD)
+  const updateStatus = (isConnected) => {
+    const text = isConnected ? "Conectado" : "Desconectado";
+    const cls = isConnected ? "badge bg-success" : "badge bg-danger";
+
+    socketStatusBadge.className = cls;
+    socketStatusBadge.innerText = text;
+
+    // HUD Status (com classes extras de posicionamento se necessário)
+    hudSocketStatus.className = cls + " mb-1 d-block";
+    hudSocketStatus.innerText = text;
+  };
+
+  socket.on("connect", () => updateStatus(true));
+  socket.on("disconnect", () => updateStatus(false));
 
   // --- Elementos DOM ---
   const videoElement = document.getElementById("user-video");
@@ -18,11 +25,62 @@ document.addEventListener("DOMContentLoaded", () => {
   const overlayCanvas = document.getElementById("overlay-canvas");
   const overlayCtx = overlayCanvas.getContext("2d");
   const context = canvasElement.getContext("2d");
+
   const bpmEl = document.getElementById("bpm-value");
+  const hudBpmEl = document.getElementById("hud-bpm-value"); // NOVO
+
   const statusText = document.getElementById("status-msg");
+  const hudStatusText = document.getElementById("hud-camera-status");
+
   const roiPreview = document.getElementById("roi-preview");
 
-  // --- Toggles Lógica ---
+  // Elementos de Fullscreen
+  const btnExpand = document.getElementById("btn-expand-camera");
+  const btnExit = document.getElementById("btn-exit-fullscreen");
+  const videoWrapper = document.getElementById("main-video-wrapper");
+  const cameraHud = document.getElementById("camera-hud");
+  const body = document.body;
+
+  // --- Lógica de Fullscreen ---
+  let isFullscreen = false;
+
+  const toggleFullscreen = (active) => {
+    isFullscreen = active;
+
+    if (isFullscreen) {
+      body.classList.add("fullscreen-active");
+      videoWrapper.classList.add("fullscreen");
+      cameraHud.classList.remove("d-none");
+      btnExpand.innerHTML = '<i class="bi bi-arrows-collapse"></i>';
+
+      // Força resize dos gráficos mini
+      miniChartFFT.resize();
+      miniChartRaw.resize();
+      miniChartFiltered.resize();
+    } else {
+      body.classList.remove("fullscreen-active");
+      videoWrapper.classList.remove("fullscreen");
+      cameraHud.classList.add("d-none");
+      btnExpand.innerHTML = '<i class="bi bi-fullscreen"></i>';
+    }
+  };
+
+  btnExpand.addEventListener("click", () => {
+    toggleFullscreen(!isFullscreen);
+  });
+
+  btnExit.addEventListener("click", () => {
+    toggleFullscreen(false);
+  });
+
+  // Esc para sair do fullscreen
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && isFullscreen) {
+      btnExpand.click();
+    }
+  });
+
+  // --- Toggles Lógica (Mantém igual) ---
   const setupToggle = (id, targetId) => {
     const el = document.getElementById(targetId);
     if (el) {
@@ -40,7 +98,9 @@ document.addEventListener("DOMContentLoaded", () => {
     roiPreview.style.display = e.target.checked ? "block" : "none";
   });
 
-  // --- Configuração de Gráficos (Chart.js) ---
+  // --- CHART.JS CONFIGURATIONS ---
+
+  // Helper para gráficos normais
   const createLineChart = (ctx, label, color, isTimeBased = false) => {
     return new Chart(ctx, {
       type: "line",
@@ -71,6 +131,35 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  // Helper para MINI GRÁFICOS (HUD) - Minimalistas (sem eixos, sem grid)
+  const createMiniChart = (ctx, color) => {
+    return new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            data: [],
+            borderColor: color,
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.4,
+            fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: { x: { display: false }, y: { display: false } }, // Sem eixos
+        plugins: { legend: { display: false }, tooltip: { enabled: false } }, // Sem tooltip
+        layout: { padding: 0 },
+      },
+    });
+  };
+
+  // Gráficos Principais
   const chartFFT = createLineChart(
     document.getElementById("chartFFT"),
     "Magnitude",
@@ -89,13 +178,28 @@ document.addEventListener("DOMContentLoaded", () => {
     true,
   );
 
-  const MAX_DATA_POINTS = 100;
+  // Gráficos Mini (HUD)
+  const miniChartFFT = createMiniChart(
+    document.getElementById("miniChartFFT"),
+    "#00ff00",
+  );
+  const miniChartRaw = createMiniChart(
+    document.getElementById("miniChartRaw"),
+    "#ffc107",
+  );
+  const miniChartFiltered = createMiniChart(
+    document.getElementById("miniChartFiltered"),
+    "#0dcaf0",
+  );
 
-  function updateRealTimeChart(chart, value) {
+  const MAX_DATA_POINTS = 100;
+  const MINI_MAX_POINTS = 50; // Menos pontos para os minis para não poluir
+
+  // Função para atualizar gráficos de tempo (Raw e Filtered)
+  function updateRealTimeChart(chart, value, maxPoints) {
     chart.data.labels.push("");
     chart.data.datasets[0].data.push(value);
-
-    if (chart.data.labels.length > MAX_DATA_POINTS) {
+    if (chart.data.labels.length > maxPoints) {
       chart.data.labels.shift();
       chart.data.datasets[0].data.shift();
     }
@@ -107,16 +211,24 @@ document.addEventListener("DOMContentLoaded", () => {
     .getUserMedia({ video: { width: 320, height: 240 } })
     .then((stream) => {
       videoElement.srcObject = stream;
-      statusText.innerText = "Câmera ativa. Processando...";
-      // CORREÇÃO: Removido mt-3 para manter alinhamento
+
+      const msg = "Câmera ativa. Processando...";
+      statusText.innerText = msg;
       statusText.className = "badge bg-primary";
+
+      hudStatusText.innerText = msg;
+      hudStatusText.className = "badge bg-primary d-block"; // HUD
+
       startSendingFrames();
     })
     .catch((err) => {
       console.error(err);
-      statusText.innerText = "Erro: Câmera não permitida";
-      // CORREÇÃO: Removido mt-3
+      const msg = "Erro: Câmera não permitida";
+      statusText.innerText = msg;
       statusText.className = "badge bg-danger";
+
+      hudStatusText.innerText = msg;
+      hudStatusText.className = "badge bg-danger d-block"; // HUD
     });
 
   function startSendingFrames() {
@@ -134,13 +246,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Recebimento de Dados ---
   socket.on("data_update", (msg) => {
+    // Limpa overlay (lembre-se de ajustar para resolução de tela cheia se necessário, mas o canvas estica via CSS)
     overlayCtx.clearRect(0, 0, 320, 240);
 
     if (msg.face_detected) {
+      // Atualiza BPM Principal e HUD
       bpmEl.innerText = msg.bpm;
-      statusText.innerText = "Monitorando...";
-      // CORREÇÃO: Removido mt-3
-      statusText.className = "badge bg-success";
+      hudBpmEl.innerText = msg.bpm;
+
+      // Atualiza Texto Status
+      const stTxt = "Monitorando...";
+      const stCls = "badge bg-success";
+      statusText.innerText = stTxt;
+      statusText.className = stCls;
+
+      hudStatusText.innerText = stTxt;
+      hudStatusText.className = stCls + " d-block";
 
       if (msg.roi_rect) {
         const [x, y, w, h] = msg.roi_rect;
@@ -155,25 +276,54 @@ document.addEventListener("DOMContentLoaded", () => {
         roiPreview.src = "data:image/jpeg;base64," + msg.roi_image;
       }
     } else {
-      statusText.innerText = "Procurando rosto...";
-      // CORREÇÃO: Removido mt-3
-      statusText.className = "badge bg-warning text-dark";
+      const stTxt = "Procurando rosto...";
+      const stCls = "badge bg-warning text-dark";
+      statusText.innerText = stTxt;
+      statusText.className = stCls;
+
+      hudStatusText.innerText = stTxt;
+      hudStatusText.className = stCls + " d-block";
     }
 
+    // --- ATUALIZAÇÃO DOS GRÁFICOS ---
+
+    // 1. FFT (Vetor Completo)
     if (msg.chart_data && msg.chart_data.x.length > 0) {
-      chartFFT.data.labels = msg.chart_data.x.map((v) => Math.round(v));
+      const labels = msg.chart_data.x.map((v) => Math.round(v));
+
+      // Gráfico Principal
+      chartFFT.data.labels = labels;
       chartFFT.data.datasets[0].data = msg.chart_data.y;
       chartFFT.update("none");
+
+      // Mini Gráfico (Só atualiza se fullscreen estiver ativo para economizar recursos)
+      if (isFullscreen) {
+        miniChartFFT.data.labels = labels;
+        miniChartFFT.data.datasets[0].data = msg.chart_data.y;
+        miniChartFFT.update("none");
+      }
     }
 
+    // 2. Tempo Real (Raw e Filtered)
     if (msg.face_detected) {
+      // Principal
       if (!document.getElementById("card-raw").classList.contains("d-none")) {
-        updateRealTimeChart(chartRaw, msg.raw_val);
+        updateRealTimeChart(chartRaw, msg.raw_val, MAX_DATA_POINTS);
       }
       if (
         !document.getElementById("card-filtered").classList.contains("d-none")
       ) {
-        updateRealTimeChart(chartFiltered, msg.filtered_val);
+        updateRealTimeChart(chartFiltered, msg.filtered_val, MAX_DATA_POINTS);
+      }
+
+      // Mini Gráficos (HUD)
+      if (isFullscreen) {
+        updateRealTimeChart(miniChartRaw, msg.raw_val, MINI_MAX_POINTS);
+        updateRealTimeChart(
+          miniChartFiltered,
+          msg.filtered_val,
+          MINI_MAX_POINTS,
+        );
       }
     }
   });

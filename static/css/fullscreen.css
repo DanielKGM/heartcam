@@ -1,0 +1,120 @@
+/* Quando o body tiver esta classe, esconde a barra de rolagem */
+body.fullscreen-active {
+  overflow: hidden;
+}
+
+/* Oculta Navbar e outros elementos quando em fullscreen */
+body.fullscreen-active nav,
+body.fullscreen-active .container > .row > .col-lg-7, /* Coluna da direita */
+body.fullscreen-active .container > .row:last-child,  /* Linha dos gráficos grandes */
+body.fullscreen-active .card-header,
+body.fullscreen-active footer {
+  display: none !important;
+}
+
+/* Transforma o wrapper do vídeo em tela cheia */
+.video-wrapper.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  border: none;
+  border-radius: 0;
+  background: #000;
+  padding-bottom: 0; /* Remove o aspect-ratio hack */
+}
+
+/* Ajusta o vídeo e canvas para preencher a tela */
+.video-wrapper.fullscreen #user-video,
+.video-wrapper.fullscreen #overlay-canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* ou cover, dependendo da preferência */
+}
+
+/* --- HUD (HEADS UP DISPLAY) --- */
+.camera-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Permite clicar no vídeo se necessário */
+  padding: 20px;
+  z-index: 10000;
+}
+
+/* Posicionamento dos Elementos */
+.hud-top-left {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+}
+
+.hud-top-right {
+  position: absolute;
+  top: 60px;
+  right: 20px;
+  text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+}
+
+.hud-bottom-right {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 200px; /* Largura dos mini gráficos */
+}
+
+/* Estilização do BPM no HUD */
+.hud-bpm-label {
+  font-size: 0.8rem;
+  color: #aaa;
+  text-transform: uppercase;
+}
+.hud-bpm-value {
+  font-size: 3.5rem;
+  font-weight: bold;
+  color: #00ff00;
+  line-height: 1;
+}
+
+/* Mini Gráficos */
+.mini-chart-box {
+  background: rgba(0, 0, 0, 0.5);
+  padding: 5px;
+  border-radius: 4px;
+  border: 1px solid #444;
+}
+.mini-chart-box small {
+  display: block;
+  font-size: 0.6rem;
+  color: #ccc;
+  margin-bottom: 2px;
+}
+.mini-chart-box canvas {
+  height: 40px !important; /* Altura fixa pequena */
+  width: 100% !important;
+}
+
+/* --- BOTÃO DE SAIR (MOBILE/DESKTOP) --- */
+#btn-exit-fullscreen {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 35px; /* Reduzido de 45px para 35px */
+  height: 35px;
+  z-index: 10001;
+
+  /* CRUCIAL: Permite clicar no botão mesmo com o HUD tendo pointer-events: none */
+  pointer-events: auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem; /* Fonte menor */
+}
