@@ -1,0 +1,57 @@
+<div class="modal fade" id="modalMetodologia" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title">
+          <i class="bi bi-cpu me-2"></i>Metodologia Científica
+        </h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <h6 class="text-success">Como funciona?</h6>
+        <p>
+          Este sistema utiliza uma técnica de Visão Computacional chamada
+          <strong>Fotopletismografia Remota (rPPG)</strong>. O processo ocorre
+          em três etapas:
+        </p>
+        <ol>
+          <li>
+            <strong>Detecção Facial:</strong> Utilizamos o algoritmo
+            <em>Haar Cascade</em> para localizar o rosto e isolar a região da
+            testa, onde a pele é mais fina e vascularizada.
+          </li>
+          <li>
+            <strong>Extração do Sinal:</strong> A cada batimento cardíaco, o
+            volume de sangue no rosto muda sutilmente, alterando a absorção de
+            luz (especialmente no canal verde da câmera). O sistema captura
+            essas micro-variações de brilho imperceptíveis a olho nu.
+          </li>
+          <li>
+            <strong>Processamento FFT:</strong> O sinal bruto passa por uma
+            <em>Transformada Rápida de Fourier (FFT)</em>. Isso converte o sinal
+            do domínio do tempo para o domínio da frequência, permitindo isolar
+            a frequência dominante (o pico no gráfico) que corresponde ao seu
+            BPM.
+          </li>
+        </ol>
+        <div class="alert alert-warning mt-3">
+          <small
+            ><strong>Nota Técnica:</strong> O algoritmo implementa um filtro
+            <em>Bandpass</em> para considerar apenas frequências biologicamente
+            possíveis para humanos (entre 60 e 120 BPM).</small
+          >
+        </div>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
