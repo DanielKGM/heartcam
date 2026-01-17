@@ -10,7 +10,15 @@ import os
 sys.stdout.reconfigure(encoding='utf-8')
 
 app = Flask(__name__)
-socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins="*")
+
+socketio = SocketIO(
+    app, 
+    async_mode='gevent', 
+    cors_allowed_origins="*", 
+    max_http_buffer_size=1e8, 
+    ping_timeout=60, 
+    ping_interval=25
+)
 
 client_monitors = {}
 

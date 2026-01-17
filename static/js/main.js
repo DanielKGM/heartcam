@@ -310,18 +310,33 @@ document.addEventListener("DOMContentLoaded", () => {
       updateBadges(UI.cameraStatus, "Erro: Câmera não permitida", "bg-danger");
     });
 
+  let isSending = false;
+
   function startSendingFrames() {
     setInterval(() => {
+      if (!socket.connected) return;
+      if (isSending) return;
       UI.ctxFrame.drawImage(UI.video, 0, 0, 320, 240);
       UI.canvasFrame.toBlob(
         (blob) => {
           if (blob) {
-            // --- NOVO: Envia também se está travado e se quer a imagem ROI ---
-            socket.emit("process_frame", {
-              image: blob,
-              is_locked: STATE.isLocked,
-              send_roi: STATE.showRoi,
-            });
+            isSending = true;
+
+            socket.emit(
+              "process_frame",
+              {
+                image: blob,
+                is_locked: STATE.isLocked,
+                send_roi: STATE.showRoi,
+              },
+              (response) => {
+                isSending = false;
+              },
+            );
+
+            setTimeout(() => {
+              isSending = false;
+            }, 200);
           }
         },
         "image/jpeg",
