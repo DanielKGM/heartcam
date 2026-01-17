@@ -3,7 +3,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // 1. GERENCIAMENTO DE UI E SELETORES
   // =================================================================
 
-  // Agrupamos elementos que têm a mesma função (Dashboard + HUD)
   const UI = {
     video: document.getElementById("user-video"),
     canvasFrame: document.getElementById("frame-canvas"),
@@ -65,12 +64,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // 2. FUNÇÕES AUXILIARES DE UI (HELPERS)
   // =================================================================
 
-  // Atualiza texto e classe de uma lista de elementos
   const updateBadges = (elements, text, cssClass) => {
     elements.forEach((el) => {
       if (el) {
         el.innerText = text;
-        // Preserva classes de layout (d-block, mb-1) se existirem, substitui as de cor
         const layoutClasses = Array.from(el.classList).filter(
           (c) => !c.startsWith("bg-") && c !== "badge",
         );
@@ -79,14 +76,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  // Atualiza textos simples em lista de elementos
   const updateText = (elements, text) => {
     elements.forEach((el) => {
       if (el) el.innerText = text;
     });
   };
 
-  // Atualiza imagens SRC e visibilidade
   const updateImages = (elements, base64) => {
     const src = "data:image/jpeg;base64," + base64;
     elements.forEach((el) => {
@@ -94,7 +89,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  // Sincroniza visibilidade (Toggle -> Card -> HUD Box)
   const syncVisibility = (toggleId, ...targetElements) => {
     const toggle = document.getElementById(toggleId);
     if (!toggle) return;
@@ -109,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     toggle.addEventListener("change", apply);
-    apply(); // Estado inicial
+    apply();
   };
 
   // =================================================================
@@ -175,7 +169,6 @@ document.addEventListener("DOMContentLoaded", () => {
     },
   };
 
-  // Helper para atualizar dados de tempo real
   const pushChartData = (chart, value, maxPoints) => {
     if (!chart) return;
     chart.data.labels.push("");
@@ -201,8 +194,6 @@ document.addEventListener("DOMContentLoaded", () => {
       wrapper.classList.add("fullscreen");
       hud.classList.remove("d-none");
       btnExpand.innerHTML = '<i class="bi bi-arrows-collapse"></i>';
-
-      // Resize charts
       Object.values(charts.mini).forEach((c) => c?.resize());
     } else {
       body.classList.remove("fullscreen-active");
@@ -227,11 +218,12 @@ document.addEventListener("DOMContentLoaded", () => {
   syncVisibility("toggle-raw", UI.cards.raw, UI.hudBoxes.raw);
   syncVisibility("toggle-filtered", UI.cards.filtered, UI.hudBoxes.filtered);
 
-  // Toggle ROI específico (afeta variável de estado + visibilidade)
+  // Toggle ROI específico (Controla apenas a visibilidade da IMAGEM)
   if (UI.fullscreen.toggleRoi) {
     UI.fullscreen.toggleRoi.addEventListener("change", (e) => {
       STATE.showRoi = e.target.checked;
       UI.roiPreview.forEach((el) => {
+        // Esconde ou mostra a tag <img>
         if (el) el.style.display = STATE.showRoi ? "block" : "none";
       });
     });
@@ -280,7 +272,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // 1. Limpa Overlay
     UI.ctxOverlay.clearRect(0, 0, 320, 240);
 
-    // 2. Atualiza Imagem ROI (Independente de detecção facial)
+    // 2. Atualiza Imagem ROI (Independente de detecção facial, visibilidade controlada pelo CSS/Toggle)
     if (msg.roi_image) {
       updateImages(UI.roiPreview, msg.roi_image);
     }
@@ -291,8 +283,10 @@ document.addEventListener("DOMContentLoaded", () => {
       updateText(UI.bpm, msg.bpm);
       updateBadges(UI.cameraStatus, "Monitorando...", "bg-success");
 
-      // Desenha Retângulo Verde (se habilitado)
-      if (msg.roi_rect && STATE.showRoi) {
+      // --- CORREÇÃO AQUI ---
+      // Desenha Retângulo Verde SEMPRE que houver coordenadas
+      // Removemos a verificação "&& STATE.showRoi"
+      if (msg.roi_rect) {
         const [x, y, w, h] = msg.roi_rect;
         UI.ctxOverlay.beginPath();
         UI.ctxOverlay.lineWidth = 3;
@@ -310,16 +304,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 4. Atualização dos Gráficos
 
-    // 4.1 FFT (Gráfico completo)
+    // 4.1 FFT
     if (msg.chart_data && msg.chart_data.x.length > 0) {
       const labels = msg.chart_data.x.map((v) => Math.round(v));
-
-      // Principal
       charts.main.fft.data.labels = labels;
       charts.main.fft.data.datasets[0].data = msg.chart_data.y;
       charts.main.fft.update("none");
 
-      // Mini (Apenas se fullscreen)
       if (STATE.isFullscreen) {
         charts.mini.fft.data.labels = labels;
         charts.mini.fft.data.datasets[0].data = msg.chart_data.y;
@@ -327,9 +318,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 4.2 Tempo Real (Raw e Filtered)
+    // 4.2 Tempo Real
     if (msg.face_detected) {
-      // Verifica se o card está visível antes de desenhar (Economia de CPU)
       const isRawVisible = !UI.cards.raw.classList.contains("d-none");
       const isFilteredVisible = !UI.cards.filtered.classList.contains("d-none");
 
@@ -339,7 +329,6 @@ document.addEventListener("DOMContentLoaded", () => {
         pushChartData(charts.main.filtered, msg.filtered_val, STATE.maxPoints);
 
       if (STATE.isFullscreen) {
-        // Verifica se os boxes do HUD estão visíveis
         const isMiniRawVisible = !UI.hudBoxes.raw.classList.contains("d-none");
         const isMiniFilteredVisible =
           !UI.hudBoxes.filtered.classList.contains("d-none");
