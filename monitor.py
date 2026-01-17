@@ -1,3 +1,11 @@
+# -------------------------------------------------------------------
+# Project: HeartCam - rPPG Remote Heart Rate Monitor
+# Author: Daniel Campos Galdez Monteiro
+# License: GNU GPLv3
+# Date: 2026
+# Description: Real-time Eulerian Video Magnification implementation.
+# -------------------------------------------------------------------
+
 import numpy as np
 import cv2
 import os
@@ -180,7 +188,6 @@ class HeartRateMonitor:
         if self.buffer_index % self.bpm_calculation_frequency != 0:
             return
 
-        # --- CORREÇÃO 2: Proteção de FPS ---
         # Só recalcula FPS se tivermos um timestamp válido (não zero) no início da janela
         t_start = self.timestamps[(self.buffer_index + 1) % self.buffer_size]
         
