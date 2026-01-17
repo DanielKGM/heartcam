@@ -358,7 +358,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // Se estiver TRAVADO, atualiza dados reais
-      if (msg.is_locked) {
+      if (msg.is_locked && STATE.isLocked) {
         updateText(UI.bpm, msg.bpm);
         updateBadges(UI.cameraStatus, "Calculando BPM...", "bg-success");
 
