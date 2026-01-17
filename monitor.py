@@ -49,7 +49,6 @@ class HeartRateMonitor:
 
     def _init_buffers(self):
         # Buffer circular de vídeo (EVM)
-        # Nota: proc_height e proc_width divididos por 2^levels devido à pirâmide
         h = self.proc_height // (2 ** self.levels)
         w = self.proc_width // (2 ** self.levels)
         
@@ -58,9 +57,9 @@ class HeartRateMonitor:
         # Buffer para média da FFT
         self.fourier_transform_avg = np.zeros((self.buffer_size))
         
-        # Eixo de Frequências (Dinâmico)
-        self.frequencies = np.zeros((self.buffer_size))
-        self.mask = np.zeros((self.buffer_size), dtype=bool)
+        # Isso garante que o gráfico funcione antes do buffer encher
+        self.frequencies = (1.0 * self.fps) * np.arange(self.buffer_size) / (1.0 * self.buffer_size)
+        self.mask = (self.frequencies >= self.min_frequency) & (self.frequencies <= self.max_frequency)
 
     # CORE: Helpers de Imagem
     
@@ -75,7 +74,6 @@ class HeartRateMonitor:
         filtered_frame = pyramid[index]
         for _ in range(levels):
             filtered_frame = cv2.pyrUp(filtered_frame)
-        # Garante o tamanho exato cortando bordas extras geradas pelo pyrUp
         filtered_frame = filtered_frame[:self.proc_height, :self.proc_width]
         return filtered_frame
 
@@ -104,12 +102,10 @@ class HeartRateMonitor:
     # FASE 2: Lógica de Estado (Destravado vs Travado)
 
     def _handle_unlocked_state(self, frame):
-        """Procura o rosto e retorna apenas coordenadas para desenho."""
         self.buffer_index = 0
         self.current_bpm = 0
         self.smoothed_bpm = 0
         
-        # Roda detecção se for a hora ou se não tiver rosto ainda
         if self.frame_counter % self.detection_frequency == 0 or not self.face_detected:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             detected = list(self.face_cascade.detectMultiScale(
@@ -136,31 +132,24 @@ class HeartRateMonitor:
         }
 
     def _handle_locked_state(self, frame, send_roi):
-        """Processamento principal: EVM + FFT + BPM."""
         fx, fy, fw, fh = self._get_subface_coord(0.5, 0.18, 0.25, 0.15)
         real_height, real_width, _ = frame.shape
 
-        # Validação de limites
         if not (fy >= 0 and fy+fh < real_height and fx >= 0 and fx+fw < real_width):
-             # Se perdeu o enquadramento, retorna erro suave
              return {'bpm': "--", 'face_detected': True, 'roi_rect': None, 'is_locked': True}
 
         roi = frame[fy:fy+fh, fx:fx+fw]
-        raw_val = np.mean(roi[:, :, 1]) # Canal Verde
+        raw_val = np.mean(roi[:, :, 1])
         current_time = time.time()
 
         try:
-            # 1. Prepara e armazena no buffer (Resize & Pyramid)
             detection_frame = cv2.resize(roi, (self.proc_width, self.proc_height))
             fourier_transform = self._update_buffers(detection_frame, current_time)
 
-            # 2. Calcula BPM (Matemática Pura)
             self._calculate_bpm(fourier_transform, current_time)
 
-            # 3. Gera Feedback Visual (Se solicitado)
             filtered_val, roi_output_b64 = self._generate_visual_feedback(detection_frame, fourier_transform, send_roi)
 
-            # Avança o buffer
             self.buffer_index = (self.buffer_index + 1) % self.buffer_size
 
             return {
@@ -174,13 +163,11 @@ class HeartRateMonitor:
                 'chart_data': {'x': self.freq_axis, 'y': self.psd_data}
             }
         except Exception:
-            # Em caso de erro numérico, não quebra a aplicação
             return {'bpm': "--", 'face_detected': True, 'is_locked': True}
-
+        
     # FASE 3: Processamento Matemático e Visual
 
     def _update_buffers(self, detection_frame, current_time):
-        """Atualiza pirâmide gaussiana e timestamps."""
         self.timestamps[self.buffer_index] = current_time
         
         pyramid = self._build_gauss(detection_frame, self.levels + 1)
@@ -190,35 +177,32 @@ class HeartRateMonitor:
         return np.fft.fft(self.video_gauss, axis=0)
 
     def _calculate_bpm(self, fourier_transform, current_time):
-        """FPS Dinâmico + Média Ponderada + Suavização."""
         if self.buffer_index % self.bpm_calculation_frequency != 0:
             return
 
-        # 1. Calcula FPS real baseado no tempo que levou para encher o buffer
+        # --- CORREÇÃO 2: Proteção de FPS ---
+        # Só recalcula FPS se tivermos um timestamp válido (não zero) no início da janela
         t_start = self.timestamps[(self.buffer_index + 1) % self.buffer_size]
-        if current_time > t_start:
+        
+        if t_start > 0 and current_time > t_start:
             self.fps = self.buffer_size / (current_time - t_start)
+        # Se t_start for 0, mantemos o self.fps = 15 padrão
 
-        # 2. Atualiza Eixos e Máscara
+        # Atualiza Eixos e Máscara
         self.frequencies = (1.0 * self.fps) * np.arange(self.buffer_size) / (1.0 * self.buffer_size)
         self.mask = (self.frequencies >= self.min_frequency) & (self.frequencies <= self.max_frequency)
 
-        # 3. Prepara FFT para análise (Zera frequências inúteis)
-        # Nota: Usamos uma cópia para análise 1D, não alteramos o FT original usado para reconstrução de imagem
         ft_analysis = fourier_transform.copy()
         ft_analysis[self.mask == False] = 0
 
-        # Média Espacial (Transforma 3D em 1D)
         for buf in range(self.buffer_size):
             self.fourier_transform_avg[buf] = np.real(ft_analysis[buf]).mean()
 
-        # 4. Encontra Pico e Vizinhos (Weighted Average)
         idx = np.argmax(self.fourier_transform_avg)
         
         if idx > 0 and idx < self.buffer_size - 1:
             mag_prev, mag_curr, mag_next = self.fourier_transform_avg[idx-1:idx+2]
             
-            # Fórmula da Média Ponderada
             numerator = (self.frequencies[idx-1]*mag_prev + 
                          self.frequencies[idx]*mag_curr + 
                          self.frequencies[idx+1]*mag_next)
@@ -232,7 +216,6 @@ class HeartRateMonitor:
         else:
             instant_bpm = 60.0 * self.frequencies[idx]
 
-        # 5. Suavização (Smooth)
         if self.smoothed_bpm == 0:
             self.smoothed_bpm = instant_bpm
         else:
@@ -240,21 +223,19 @@ class HeartRateMonitor:
         
         self.current_bpm = self.smoothed_bpm
 
-        # 6. Dados para Exportação (Gráfico)
         valid_idx = np.nonzero(self.mask)
         self.psd_data = self.fourier_transform_avg[valid_idx].tolist()
         self.freq_axis = (self.frequencies[valid_idx] * 60.0).tolist()
 
     def _generate_visual_feedback(self, detection_frame, fourier_transform, send_roi):
-        """Reconstroi a imagem com cores magnificadas (EVM)."""
-        # Aplica máscara na FFT para reconstrução (apenas frequências cardíacas)
+        # Garante que a máscara não esteja vazia/zerada
         fourier_transform[self.mask == False] = 0
         
         filtered = np.real(np.fft.ifft(fourier_transform, axis=0))
         filtered = filtered * self.alpha
         
         filtered_frame = self._reconstruct_frame(filtered, self.buffer_index, self.levels)
-        filtered_val = np.mean(filtered_frame) # Valor para gráfico de pulso
+        filtered_val = np.mean(filtered_frame)
 
         roi_output_b64 = None
         if send_roi:
@@ -265,10 +246,7 @@ class HeartRateMonitor:
             
         return filtered_val, roi_output_b64
 
-    # Começo
-
     def process_frame(self, image_bytes, is_locked=False, send_roi=False):
-        """Método público chamado pelo app.py"""
         frame = self._decode_frame(image_bytes)
         if frame is None: return None
 
