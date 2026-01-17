@@ -1,7 +1,12 @@
-flask
-flask-socketio
-gevent
-gevent-websocket
-opencv-python-headless
-numpy
-gunicorn
+
+# tested on:
+# windows 11 home (local), manylinux (deploy) 17/01/2026
+
+flask == 3.1.2
+flask-socketio == 5.6.0
+gevent == 25.9.1
+gevent-websocket == 0.10.1
+opencv-python-headless == 4.12.0.88
+numpy == 2.0.2
+# numpy 2.2.6 on linux gives error: numpy.core._multiarray_umath failed to import
+gunicorn == 23.0.0
