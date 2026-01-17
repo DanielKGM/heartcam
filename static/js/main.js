@@ -426,7 +426,7 @@ document.addEventListener("DOMContentLoaded", () => {
         updateText(UI.bpm, "--");
         updateBadges(
           UI.cameraStatus,
-          "Rosto encontrado. Trave para medir.",
+          "Rosto encontrado. Clique no cadeado para travar área e medir.",
           "bg-warning text-dark",
         );
       }

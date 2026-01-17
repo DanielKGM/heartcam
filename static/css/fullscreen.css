@@ -42,7 +42,6 @@ body.fullscreen-active footer {
   width: 100%;
   height: 100%;
   pointer-events: none; /* Permite clicar no vídeo se necessário */
-  padding: 20px;
   z-index: 10000;
 }
 
@@ -105,7 +104,7 @@ body.fullscreen-active footer {
 #btn-exit-fullscreen,
 #btn-lock-hud {
   position: absolute;
-  top: 15px;
+  top: 20px;
   width: 35px;
   height: 35px;
   z-index: 10001;
@@ -119,11 +118,11 @@ body.fullscreen-active footer {
 }
 
 #btn-exit-fullscreen {
-  right: 15px;
+  right: 20px;
 }
 
 #btn-lock-hud {
-  right: 60px;
+  right: 65px;
 }
 
 .hud-roi-preview {
@@ -137,4 +136,14 @@ body.fullscreen-active footer {
   display: none; /* Controlado via JS (respeita o toggle) */
   z-index: 10000;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 768px) {
+  .hud-bottom-right {
+    margin-bottom: 6rem;
+  }
+
+  .hud-roi-preview {
+    margin-bottom: 5rem;
+  }
 }
