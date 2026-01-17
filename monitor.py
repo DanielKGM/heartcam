@@ -17,6 +17,9 @@ class HeartRateMonitor:
         self.last_center = np.array([0, 0])
         self.face_detected = False
 
+        self.frame_counter = 0
+        self.detection_frequency = 10 # Roda detecção de rosto a cada 10 frames
+
         # --- Parâmetros de Processamento ---
         self.levels = 3
         self.alpha = 170
@@ -75,95 +78,105 @@ class HeartRateMonitor:
                 int(h * fh_h)]
 
     def process_frame(self, image_bytes):
-        if not image_bytes: return None
+            if not image_bytes: return None
 
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        if frame is None: return None
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if frame is None: return None
 
-        realHeight, realWidth, _ = frame.shape
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            realHeight, realWidth, _ = frame.shape
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        # Detecção Facial
-        detected = list(self.face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=4, minSize=(40, 40), flags=cv2.CASCADE_SCALE_IMAGE))
+            # Detecção Facial
+            detected = list(self.face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=4, minSize=(40, 40), flags=cv2.CASCADE_SCALE_IMAGE))
 
-        if len(detected) > 0:
-            detected.sort(key=lambda a: a[-1] * a[-2])
-            current_face = detected[-1]
-            if self.shift(current_face) > 10 or not self.face_detected:
-                self.face_rect = current_face
-            self.face_detected = True
-        else:
-            pass # Mantém ultimo estado
+            if len(detected) > 0:
+                detected.sort(key=lambda a: a[-1] * a[-2])
+                current_face = detected[-1]
+                if self.shift(current_face) > 10 or not self.face_detected:
+                    self.face_rect = current_face
+                self.face_detected = True
+            else:
+                pass 
 
-        roi_coords = None
-        roi_gray_b64 = None
-        raw_val = 0
-        filtered_val = 0
+            roi_coords = None
+            roi_output_b64 = None # Mudamos o nome para refletir que é a imagem processada
+            raw_val = 0
+            filtered_val = 0
 
-        if self.face_detected:
-            fx, fy, fw, fh = self.get_subface_coord(0.5, 0.18, 0.25, 0.15)
-            
-            if fy >= 0 and fy+fh < realHeight and fx >= 0 and fx+fw < realWidth:
-                roi_coords = [int(fx), int(fy), int(fw), int(fh)]
-                roi = frame[fy:fy+fh, fx:fx+fw]
+            if self.face_detected:
+                fx, fy, fw, fh = self.get_subface_coord(0.5, 0.18, 0.25, 0.15)
                 
-                # 1. Captura o Raw Signal (Média do canal Verde da ROI)
-                # O canal verde tem o sinal de pulso mais forte (Hemoglobina absorve verde)
-                raw_val = np.mean(roi[:, :, 1]) 
-
-                # Gera imagem Grayscale da ROI para enviar ao front
-                roi_gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-                _, buffer_gray = cv2.imencode('.jpg', roi_gray)
-                roi_gray_b64 = base64.b64encode(buffer_gray).decode('utf-8')
-
-                try:
-                    detectionFrame = cv2.resize(roi, (self.procWidth, self.procHeight))
+                if fy >= 0 and fy+fh < realHeight and fx >= 0 and fx+fw < realWidth:
+                    roi_coords = [int(fx), int(fy), int(fw), int(fh)]
+                    roi = frame[fy:fy+fh, fx:fx+fw]
                     
-                    # Processamento FFT
-                    pyramid = self.buildGauss(detectionFrame, self.levels + 1)
-                    currentLevel = pyramid[self.levels]
-                    
-                    self.videoGauss[self.bufferIndex] = currentLevel
-                    fourierTransform = np.fft.fft(self.videoGauss, axis=0)
-                    fourierTransform[self.mask == False] = 0
+                    # 1. Raw Signal
+                    raw_val = np.mean(roi[:, :, 1]) 
 
-                    # Cálculo BPM
-                    if self.bufferIndex % self.bpmCalculationFrequency == 0:
-                        for buf in range(self.bufferSize):
-                            self.fourierTransformAvg[buf] = np.real(fourierTransform[buf]).mean()
-                        hz = self.frequencies[np.argmax(self.fourierTransformAvg)]
-                        bpm = 60.0 * hz
-                        self.bpmBuffer[self.bpmBufferIndex] = bpm
-                        self.bpmBufferIndex = (self.bpmBufferIndex + 1) % self.bpmBufferSize
-                        self.current_bpm = self.bpmBuffer.mean()
+                    try:
+                        detectionFrame = cv2.resize(roi, (self.procWidth, self.procHeight))
                         
-                        valid_idx = np.where((self.frequencies >= self.minFrequency) & (self.frequencies <= self.maxFrequency))
-                        self.psd_data = self.fourierTransformAvg[valid_idx].tolist()
-                        self.freq_axis = (self.frequencies[valid_idx] * 60.0).tolist()
+                        # Processamento FFT (Construção da Pirâmide)
+                        pyramid = self.buildGauss(detectionFrame, self.levels + 1)
+                        currentLevel = pyramid[self.levels]
+                        
+                        self.videoGauss[self.bufferIndex] = currentLevel
+                        fourierTransform = np.fft.fft(self.videoGauss, axis=0)
+                        fourierTransform[self.mask == False] = 0
 
-                    # 2. Captura o Filtered Signal (Magnificação)
-                    # Reconstrói apenas o sinal amplificado para este frame
-                    filtered = np.real(np.fft.ifft(fourierTransform, axis=0))
-                    filtered = filtered * self.alpha
-                    
-                    # Pegamos o valor médio do frame filtrado atual
-                    filteredFrame = self.reconstructFrame(filtered, self.bufferIndex, self.levels)
-                    filtered_val = np.mean(filteredFrame)
+                        # Cálculo BPM
+                        if self.bufferIndex % self.bpmCalculationFrequency == 0:
+                            for buf in range(self.bufferSize):
+                                self.fourierTransformAvg[buf] = np.real(fourierTransform[buf]).mean()
+                            hz = self.frequencies[np.argmax(self.fourierTransformAvg)]
+                            bpm = 60.0 * hz
+                            self.bpmBuffer[self.bpmBufferIndex] = bpm
+                            self.bpmBufferIndex = (self.bpmBufferIndex + 1) % self.bpmBufferSize
+                            self.current_bpm = self.bpmBuffer.mean()
+                            
+                            valid_idx = np.where((self.frequencies >= self.minFrequency) & (self.frequencies <= self.maxFrequency))
+                            self.psd_data = self.fourierTransformAvg[valid_idx].tolist()
+                            self.freq_axis = (self.frequencies[valid_idx] * 60.0).tolist()
 
-                    self.bufferIndex = (self.bufferIndex + 1) % self.bufferSize
-                except Exception:
-                    pass
+                        # 2. Magnificação (O "Psicodélico")
+                        filtered = np.real(np.fft.ifft(fourierTransform, axis=0))
+                        filtered = filtered * self.alpha
+                        
+                        # Frame reconstruído (apenas o sinal de pulso)
+                        filteredFrame = self.reconstructFrame(filtered, self.bufferIndex, self.levels)
+                        
+                        # --- A MÁGICA ACONTECE AQUI ---
+                        # Somamos o sinal amplificado ao frame original da ROI para visualizar o pulso
+                        outputFrame = detectionFrame + filteredFrame
+                        
+                        # Normaliza para garantir que está entre 0-255 (Visualização correta)
+                        outputFrame = cv2.convertScaleAbs(outputFrame)
+                        
+                        # Converte essa imagem "pulsante" para enviar ao front
+                        _, buffer_img = cv2.imencode('.jpg', outputFrame)
+                        roi_output_b64 = base64.b64encode(buffer_img).decode('utf-8')
+                        # ------------------------------
 
-        return {
-            'bpm': round(self.current_bpm, 1),
-            'face_detected': self.face_detected,
-            'roi_rect': roi_coords,
-            'roi_image': roi_gray_b64, # Imagem em grayscale (base64)
-            'raw_val': float(raw_val), # Valor numérico para o gráfico Raw
-            'filtered_val': float(filtered_val), # Valor numérico para o gráfico Filtrado
-            'chart_data': { # Dados para o gráfico FFT (PSD)
-                'x': self.freq_axis,
-                'y': self.psd_data
+                        filtered_val = np.mean(filteredFrame)
+
+                        self.bufferIndex = (self.bufferIndex + 1) % self.bufferSize
+                    except Exception as e:
+                        # Se der erro no processamento (buffer vazio, etc), envia o ROI normal
+                        print(f"Erro processamento: {e}")
+                        _, buffer_backup = cv2.imencode('.jpg', roi)
+                        roi_output_b64 = base64.b64encode(buffer_backup).decode('utf-8')
+                        pass
+
+            return {
+                'bpm': round(self.current_bpm, 1),
+                'face_detected': self.face_detected,
+                'roi_rect': roi_coords,
+                'roi_image': roi_output_b64, # Agora contém a imagem colorida e pulsante
+                'raw_val': float(raw_val),
+                'filtered_val': float(filtered_val), 
+                'chart_data': {
+                    'x': self.freq_axis,
+                    'y': self.psd_data
+                }
             }
-        }
