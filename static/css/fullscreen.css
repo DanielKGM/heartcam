@@ -101,22 +101,29 @@ body.fullscreen-active footer {
   width: 100% !important;
 }
 
-/* --- BOTÃO DE SAIR (MOBILE/DESKTOP) --- */
-#btn-exit-fullscreen {
+/* --- BOTÕES DE CONTROLE (SAIR E TRAVAR) --- */
+#btn-exit-fullscreen,
+#btn-lock-hud {
   position: absolute;
   top: 15px;
-  right: 15px;
-  width: 35px; /* Reduzido de 45px para 35px */
+  width: 35px;
   height: 35px;
   z-index: 10001;
 
-  /* CRUCIAL: Permite clicar no botão mesmo com o HUD tendo pointer-events: none */
   pointer-events: auto;
 
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem; /* Fonte menor */
+  font-size: 1rem;
+}
+
+#btn-exit-fullscreen {
+  right: 15px;
+}
+
+#btn-lock-hud {
+  right: 60px;
 }
 
 .hud-roi-preview {

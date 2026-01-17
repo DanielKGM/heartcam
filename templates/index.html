@@ -86,7 +86,16 @@
               <h6 class="m-0"><i class="bi bi-camera-video me-2"></i>Câmera</h6>
 
               <div class="d-flex align-items-center gap-2">
-                <img id="roi-preview" src="" alt="ROI Gray" />
+                <img id="roi-preview" src="" alt="Frame de Saída" />
+
+                <button
+                  class="btn btn-sm btn-outline-danger"
+                  id="btn-lock-camera"
+                  title="Travar/Destravar"
+                >
+                  <i class="bi bi-unlock-fill"></i>
+                </button>
+
                 <button
                   class="btn btn-sm btn-outline-light"
                   id="btn-expand-camera"
@@ -103,6 +112,13 @@
                 <canvas id="overlay-canvas" width="320" height="240"></canvas>
 
                 <div id="camera-hud" class="camera-hud d-none">
+                  <button
+                    id="btn-lock-hud"
+                    class="btn btn-outline-danger shadow-sm"
+                  >
+                    <i class="bi bi-unlock-fill"></i>
+                  </button>
+
                   <button
                     id="btn-exit-fullscreen"
                     class="btn btn-outline-light shadow-sm"

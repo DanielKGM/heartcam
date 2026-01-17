@@ -28,6 +28,12 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("hud-roi-preview"),
     ],
 
+    // --- NOVO: Botões de Travar/Destravar ---
+    locks: [
+      document.getElementById("btn-lock-camera"),
+      document.getElementById("btn-lock-hud"),
+    ],
+
     // Fullscreen Controls
     fullscreen: {
       btnExpand: document.getElementById("btn-expand-camera"),
@@ -56,6 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const STATE = {
     isFullscreen: false,
     showRoi: true,
+    isLocked: false, // <--- NOVO: Controla se está calculando ou procurando
     maxPoints: 100,
     miniMaxPoints: 50,
   };
@@ -68,8 +75,13 @@ document.addEventListener("DOMContentLoaded", () => {
     elements.forEach((el) => {
       if (el) {
         el.innerText = text;
+        // Remove classes antigas de cor (bg-...) e mantém layout
         const layoutClasses = Array.from(el.classList).filter(
-          (c) => !c.startsWith("bg-") && c !== "badge",
+          (c) =>
+            !c.startsWith("bg-") &&
+            c !== "badge" &&
+            c !== "text-dark" &&
+            c !== "text-white",
         );
         el.className = `badge ${cssClass} ${layoutClasses.join(" ")}`;
       }
@@ -181,7 +193,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // =================================================================
-  // 5. LÓGICA DE FULLSCREEN E TOGGLES
+  // 5. LÓGICA DE FULLSCREEN, TOGGLES E LOCK
   // =================================================================
 
   const toggleFullscreen = (active) => {
@@ -213,21 +225,54 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Escape" && STATE.isFullscreen) toggleFullscreen(false);
   });
 
+  // --- NOVO: Lógica de Travar/Destravar ---
+  const toggleLock = () => {
+    STATE.isLocked = !STATE.isLocked;
+
+    UI.locks.forEach((btn) => {
+      if (!btn) return;
+      if (STATE.isLocked) {
+        // Estado: TRAVADO (Verde)
+        btn.innerHTML = '<i class="bi bi-lock-fill"></i>';
+        btn.classList.replace("btn-outline-danger", "btn-success");
+        btn.classList.replace("btn-danger", "btn-success"); // Para o botão do HUD
+      } else {
+        // Estado: DESTRAVADO (Vermelho)
+        btn.innerHTML = '<i class="bi bi-unlock-fill"></i>';
+        btn.classList.replace("btn-success", "btn-outline-danger");
+        btn.classList.replace("btn-success", "btn-danger");
+
+        // Limpa os gráficos ao destravar para não misturar dados
+        if (charts.main.raw.data.labels.length > 0) {
+          charts.main.raw.data.labels = [];
+          charts.main.raw.data.datasets[0].data = [];
+          charts.main.raw.update();
+          charts.main.filtered.data.labels = [];
+          charts.main.filtered.data.datasets[0].data = [];
+          charts.main.filtered.update();
+        }
+      }
+    });
+  };
+
+  // Adiciona evento de clique aos botões de lock
+  UI.locks.forEach((btn) => {
+    if (btn) btn.addEventListener("click", toggleLock);
+  });
+
   // Configuração dos Toggles
   syncVisibility("toggle-fft", UI.cards.fft, UI.hudBoxes.fft);
   syncVisibility("toggle-raw", UI.cards.raw, UI.hudBoxes.raw);
   syncVisibility("toggle-filtered", UI.cards.filtered, UI.hudBoxes.filtered);
 
-  // Toggle ROI específico (Controla apenas a visibilidade da IMAGEM)
+  // Toggle ROI específico
   if (UI.fullscreen.toggleRoi) {
     UI.fullscreen.toggleRoi.addEventListener("change", (e) => {
       STATE.showRoi = e.target.checked;
       UI.roiPreview.forEach((el) => {
-        // Esconde ou mostra a tag <img>
         if (el) el.style.display = STATE.showRoi ? "block" : "none";
       });
     });
-    // Trigger inicial
     UI.fullscreen.toggleRoi.dispatchEvent(new Event("change"));
   }
 
@@ -256,7 +301,14 @@ document.addEventListener("DOMContentLoaded", () => {
       UI.ctxFrame.drawImage(UI.video, 0, 0, 320, 240);
       UI.canvasFrame.toBlob(
         (blob) => {
-          if (blob) socket.emit("process_frame", { image: blob });
+          if (blob) {
+            // --- NOVO: Envia também se está travado e se quer a imagem ROI ---
+            socket.emit("process_frame", {
+              image: blob,
+              is_locked: STATE.isLocked,
+              send_roi: STATE.showRoi,
+            });
+          }
         },
         "image/jpeg",
         0.5,
@@ -265,83 +317,93 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // =================================================================
-  // 7. PROCESSAMENTO DE DADOS (SOCKET) - LÓGICA CENTRAL
+  // 7. PROCESSAMENTO DE DADOS (SOCKET)
   // =================================================================
 
   socket.on("data_update", (msg) => {
     // 1. Limpa Overlay
     UI.ctxOverlay.clearRect(0, 0, 320, 240);
 
-    // 2. Atualiza Imagem ROI (Independente de detecção facial, visibilidade controlada pelo CSS/Toggle)
+    // 2. Atualiza Imagem ROI
     if (msg.roi_image) {
       updateImages(UI.roiPreview, msg.roi_image);
     }
 
-    // 3. Lógica de Detecção
+    // 3. Lógica de Detecção e Travamento
     if (msg.face_detected) {
-      // Atualiza textos
-      updateText(UI.bpm, msg.bpm);
-      updateBadges(UI.cameraStatus, "Monitorando...", "bg-success");
+      // Define a cor: Verde se travado, Vermelho se destravado
+      const rectColor = msg.is_locked ? "#00ff00" : "#dc3545";
 
-      // --- CORREÇÃO AQUI ---
-      // Desenha Retângulo Verde SEMPRE que houver coordenadas
-      // Removemos a verificação "&& STATE.showRoi"
       if (msg.roi_rect) {
         const [x, y, w, h] = msg.roi_rect;
         UI.ctxOverlay.beginPath();
-        UI.ctxOverlay.lineWidth = 2;
-        UI.ctxOverlay.strokeStyle = "#00ff00";
+        UI.ctxOverlay.lineWidth = msg.is_locked ? 3 : 2; // Mais grosso se travado
+        UI.ctxOverlay.strokeStyle = rectColor;
         UI.ctxOverlay.rect(x, y, w, h);
         UI.ctxOverlay.stroke();
       }
-    } else {
-      updateBadges(
-        UI.cameraStatus,
-        "Procurando rosto...",
-        "bg-warning text-dark",
-      );
-    }
 
-    // 4. Atualização dos Gráficos
+      // Se estiver TRAVADO, atualiza dados reais
+      if (msg.is_locked) {
+        updateText(UI.bpm, msg.bpm);
+        updateBadges(UI.cameraStatus, "Calculando BPM...", "bg-success");
 
-    // 4.1 FFT
-    if (msg.chart_data && msg.chart_data.x.length > 0) {
-      const labels = msg.chart_data.x.map((v) => Math.round(v));
-      charts.main.fft.data.labels = labels;
-      charts.main.fft.data.datasets[0].data = msg.chart_data.y;
-      charts.main.fft.update("none");
+        // Atualiza Gráficos (Só se travado)
+        // FFT
+        if (msg.chart_data && msg.chart_data.x.length > 0) {
+          const labels = msg.chart_data.x.map((v) => Math.round(v));
+          charts.main.fft.data.labels = labels;
+          charts.main.fft.data.datasets[0].data = msg.chart_data.y;
+          charts.main.fft.update("none");
 
-      if (STATE.isFullscreen) {
-        charts.mini.fft.data.labels = labels;
-        charts.mini.fft.data.datasets[0].data = msg.chart_data.y;
-        charts.mini.fft.update("none");
-      }
-    }
+          if (STATE.isFullscreen) {
+            charts.mini.fft.data.labels = labels;
+            charts.mini.fft.data.datasets[0].data = msg.chart_data.y;
+            charts.mini.fft.update("none");
+          }
+        }
 
-    // 4.2 Tempo Real
-    if (msg.face_detected) {
-      const isRawVisible = !UI.cards.raw.classList.contains("d-none");
-      const isFilteredVisible = !UI.cards.filtered.classList.contains("d-none");
+        // Gráficos Tempo Real
+        const isRawVisible = !UI.cards.raw.classList.contains("d-none");
+        const isFilteredVisible =
+          !UI.cards.filtered.classList.contains("d-none");
 
-      if (isRawVisible)
-        pushChartData(charts.main.raw, msg.raw_val, STATE.maxPoints);
-      if (isFilteredVisible)
-        pushChartData(charts.main.filtered, msg.filtered_val, STATE.maxPoints);
-
-      if (STATE.isFullscreen) {
-        const isMiniRawVisible = !UI.hudBoxes.raw.classList.contains("d-none");
-        const isMiniFilteredVisible =
-          !UI.hudBoxes.filtered.classList.contains("d-none");
-
-        if (isMiniRawVisible)
-          pushChartData(charts.mini.raw, msg.raw_val, STATE.miniMaxPoints);
-        if (isMiniFilteredVisible)
+        if (isRawVisible)
+          pushChartData(charts.main.raw, msg.raw_val, STATE.maxPoints);
+        if (isFilteredVisible)
           pushChartData(
-            charts.mini.filtered,
+            charts.main.filtered,
             msg.filtered_val,
-            STATE.miniMaxPoints,
+            STATE.maxPoints,
           );
+
+        if (STATE.isFullscreen) {
+          const isMiniRawVisible =
+            !UI.hudBoxes.raw.classList.contains("d-none");
+          const isMiniFilteredVisible =
+            !UI.hudBoxes.filtered.classList.contains("d-none");
+
+          if (isMiniRawVisible)
+            pushChartData(charts.mini.raw, msg.raw_val, STATE.miniMaxPoints);
+          if (isMiniFilteredVisible)
+            pushChartData(
+              charts.mini.filtered,
+              msg.filtered_val,
+              STATE.miniMaxPoints,
+            );
+        }
+      } else {
+        // Se estiver DESTRAVADO (Procurando rosto)
+        updateText(UI.bpm, "--");
+        updateBadges(
+          UI.cameraStatus,
+          "Rosto encontrado. Trave para medir.",
+          "bg-warning text-dark",
+        );
       }
+    } else {
+      // Nenhuma face detectada
+      updateBadges(UI.cameraStatus, "Procurando rosto...", "bg-danger");
     }
   });
 });
