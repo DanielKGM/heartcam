@@ -181,6 +181,25 @@ document.addEventListener("DOMContentLoaded", () => {
     },
   };
 
+  const clearAllCharts = () => {
+    const allCharts = [
+      charts.main.fft,
+      charts.main.raw,
+      charts.main.filtered,
+      charts.mini.fft,
+      charts.mini.raw,
+      charts.mini.filtered,
+    ];
+
+    allCharts.forEach((chart) => {
+      if (chart) {
+        chart.data.labels = [];
+        chart.data.datasets[0].data = [];
+        chart.update(); // Força a atualização visual para vazio
+      }
+    });
+  };
+
   const pushChartData = (chart, value, maxPoints) => {
     if (!chart) return;
     chart.data.labels.push("");
@@ -225,34 +244,29 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Escape" && STATE.isFullscreen) toggleFullscreen(false);
   });
 
-  // --- NOVO: Lógica de Travar/Destravar ---
+  // --- Lógica de Travar/Destravar ---
   const toggleLock = () => {
     STATE.isLocked = !STATE.isLocked;
 
+    // 1. Atualiza Visual dos Botões
     UI.locks.forEach((btn) => {
       if (!btn) return;
       if (STATE.isLocked) {
-        // Estado: TRAVADO (Verde)
+        // TRAVADO (Verde)
         btn.innerHTML = '<i class="bi bi-lock-fill"></i>';
         btn.classList.replace("btn-outline-danger", "btn-success");
-        btn.classList.replace("btn-danger", "btn-success"); // Para o botão do HUD
+        btn.classList.replace("btn-danger", "btn-success");
       } else {
-        // Estado: DESTRAVADO (Vermelho)
+        // DESTRAVADO (Vermelho)
         btn.innerHTML = '<i class="bi bi-unlock-fill"></i>';
         btn.classList.replace("btn-success", "btn-outline-danger");
         btn.classList.replace("btn-success", "btn-danger");
-
-        // Limpa os gráficos ao destravar para não misturar dados
-        if (charts.main.raw.data.labels.length > 0) {
-          charts.main.raw.data.labels = [];
-          charts.main.raw.data.datasets[0].data = [];
-          charts.main.raw.update();
-          charts.main.filtered.data.labels = [];
-          charts.main.filtered.data.datasets[0].data = [];
-          charts.main.filtered.update();
-        }
       }
     });
+
+    if (!STATE.isLocked) {
+      clearAllCharts();
+    }
   };
 
   // Adiciona evento de clique aos botões de lock
