@@ -56,11 +56,9 @@
   </ol>
 </details>
 
-
-
 ## Sobre o Projeto
 
-[![Screenshot Produto][screenshot-produto]](https://heartcam.koyeb.app/)
+<img src="https://placehold.co/600x400?text=Screenshots+do+HeartCam">
 
 <div align="justify">
 O <b>HeartCam</b> é um sistema desenvolvido para fotopletismografia remota (rPPG), um monitoramento não invasivo de sinais vitais. Utilizando a técnica de <i>Eulerian Video Magnification</i> (EVM) e análise espectral (FFT), o sistema consegue detectar as micro-variações de cor na pele causadas pela circulação sanguínea, invisíveis a olho nu.
@@ -190,12 +188,15 @@ Após iniciar o servidor (pelo Método A ou B) sem erros, o serviço está ativo
 ### Diagrama de Fluxo do Usuário
 
 <div align="center">
-<img src="assets/fluxo.png" width="70%"/>
+<img src="assets/fluxo.png" width="30%"/>
 </div>
 
 ### Orientações
 
--
+- 💡 **Iluminação:** Use o sistema em um ambiente bem iluminado. A luz deve incidir no seu rosto de forma uniforme.
+- 🎯 **Estabilidade:** Mantenha o rosto próximo da câmera e parado. A área verde deve estar posicionada sobre a testa. Falar ou mexer a cabeça interfere na leitura da luz.
+- 👓 **Acessórios:** Óculos grossos ou franjas cobrindo a testa podem impedir a detecção correta.
+- ⏳ **Paciência:** Aguarde cerca de 10 a 30 segundos após o rosto ser detectado para amostragem e estabilização do gráfico.
 
 <p align="right">(<a href="#topo">voltar ao topo</a>)</p>
 
@@ -204,7 +205,7 @@ Após iniciar o servidor (pelo Método A ou B) sem erros, o serviço está ativo
 <!-- CONTACT -->
 ## Contato
 
-[Daniel Campos Galdez Monteiro (LINKEDIN)](https://www.linkedin.com/in/daniel-campos-galdez-monteiro/) &middot; <a href="mailto:danielgaldez10@hotmail.com?subject=HEARTCAM&body=Olá! Vim do repositório HEARTCAM e ...">danielgaldez10@hotmail.com</a>
+[Daniel Galdez](https://www.linkedin.com/in/daniel-campos-galdez-monteiro/) &middot; <a href="mailto:danielgaldez10@hotmail.com?subject=HEARTCAM&body=Olá! Vim do repositório HEARTCAM e ...">danielgaldez10@hotmail.com</a>
 
 <p align="right">(<a href="#topo">voltar ao topo</a>)</p>
 
@@ -257,4 +258,3 @@ Após iniciar o servidor (pelo Método A ou B) sem erros, o serviço está ativo
 [license-url]: https://github.com/DanielKGM/heartcam/blob/main/LICENSE.md
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://www.linkedin.com/in/daniel-campos-galdez-monteiro/
-[screenshot-produto]: https://placehold.co/600x400?text=Screenshots+do+HeartCam
