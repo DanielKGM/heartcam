@@ -134,7 +134,7 @@ Você pode clonar o repositório usando o Git ou baixar o arquivo ZIP manualment
 Abra o terminal de comandos do seu sistema operacional e execute o seguinte comando, substituindo todo texto entre colchetes (colchetes inclusos) pelo diretório em que foi baixado o projeto no passo anterior:
 
 ```sh
-cd [DIRETÓRIO EM QUE FOI BAIXADO]
+cd [DIRETÓRIO O QUAL FOI BAIXADO]
 ```
 
 #### **3º PASSO: Execute a Aplicação**
@@ -217,7 +217,7 @@ Após iniciar o servidor (pelo Método A ou B) sem erros, o serviço está ativo
 <p align="justify">Este projeto é distribuído sob a licença GNU General Public License v3 (GPLv3), que garante a liberdade de usar, estudar, modificar e redistribuir o software, desde que o código-fonte seja mantido aberto e as versões derivadas utilizem a mesma licença. Para mais informações, consulte o arquivo <b>LICENSE.md</b> ou a <b>aba de licença</b> do repositório.<br/><br/>Caso utilize este projeto em trabalhos acadêmicos ou científicos, utilize a seguinte referência BibTeX:</p>
 
 ```Latex
-@software{Campos_Galdez_Monteiro_HeartCam_Remote_Photoplethysmography_2026,
+@software{HeartCam_2026,
   author  = {Campos Galdez Monteiro, Daniel},
   month   = jan,
   title   = {{HeartCam: Remote Photoplethysmography (rPPG) System}},
