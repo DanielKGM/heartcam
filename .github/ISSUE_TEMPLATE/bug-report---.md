@@ -1,26 +1,26 @@
 ---
-name: "Bug report \U0001F41E"
-about: Create a bug report
+name: "Reportar bug \U0001F41E"
+about: Reporte um bug ou erro na aplicação
 labels: bug
 ---
 
-## Describe the bug
+## Descrição do bug
 
-A clear and concise description of what the bug is.
+Uma descrição clara e objetiva do problema.
 
-### Steps to reproduce
+### Passos para reproduzir
 
-Steps to reproduce the behavior.
+Passos necessários para reproduzir o comportamento.
 
-### Expected behavior
+### Comportamento esperado
 
-A clear and concise description of what you expected to happen.
+Uma descrição clara e objetiva do que você esperava que acontecesse.
 
-### Environment
+### Ambiente
 
-- OS: [e.g. Arch Linux]
-- Other details that you think may affect.
+- Sistema operacional: [ex.: Arch Linux, Windows]
+- Outros detalhes que você acha que podem influenciar.
 
-### Additional context
+### Contexto adicional
 
-Add any other context about the problem here.
+Adicione qualquer outro contexto relevante sobre o problema aqui.

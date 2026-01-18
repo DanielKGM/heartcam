@@ -1,17 +1,17 @@
 ---
-name: "Feature request \U0001F680"
-about: Suggest an idea
-labels: enhancement
+name: "Sugestão \U0001F680"
+about: Sugerir uma nova funcionalidade ou ideia
+labels: sugestão
 ---
 
-## Summary
+## Resumo
 
-Brief explanation of the feature.
+Breve explicação da funcionalidade.
 
-### Basic example
+### Exemplo básico
 
-Include a basic example or links here.
+Inclua um exemplo básico ou links aqui.
 
-### Motivation
+### Motivação
 
-Why are we doing this? What use cases does it support? What is the expected outcome?
+Por que estamos fazendo isso? Quais casos de uso isso atende? Qual é o resultado esperado?
