@@ -24,9 +24,9 @@
     <a href="https://heartcam.koyeb.app/"><strong>ACESSAR <i>WEBSITE</i> »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/github_username/repo_name/issues/new?labels=bug&template=bug-report---.md">Reportar Erro</a>
+    <a href="https://github.com/DanielKGM/heartcam/issues/new?labels=bug&template=bug-report---.md">Reportar Erro</a>
     &middot;
-    <a href="https://github.com/github_username/repo_name/issues/new?labels=enhancement&template=feature-request---.md">Sugerir Algo</a>
+    <a href="https://github.com/DanielKGM/heartcam/issues/new?labels=enhancement&template=feature-request---.md">Sugerir Algo</a>
   </p>
 </div>
 
