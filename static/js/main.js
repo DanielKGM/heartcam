@@ -19,6 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("socket-status"),
       document.getElementById("hud-socket-status"),
     ],
+    statusBar: [document.getElementById("status-bar")],
     cameraStatus: [
       document.getElementById("status-msg"),
       document.getElementById("hud-camera-status"),
@@ -88,6 +89,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  const updateStatusBar = (elements, cssClass) => {
+    elements.forEach((el) => {
+      if (el) {
+        el.className = `position-absolute top-0 start-0 w-100 ${cssClass}`;
+      }
+    });
+  };
+
   const updateText = (elements, text) => {
     elements.forEach((el) => {
       if (el) el.innerText = text;
@@ -123,12 +132,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // =================================================================
   const socket = io();
 
-  socket.on("connect", () =>
-    updateBadges(UI.socketStatus, "Conectado", "bg-success"),
-  );
-  socket.on("disconnect", () =>
-    updateBadges(UI.socketStatus, "Desconectado", "bg-danger"),
-  );
+  socket.on("connect", () => {
+    updateBadges(UI.socketStatus, "Conectado", "bg-success");
+    updateStatusBar(UI.statusBar, "bg-success");
+  });
+  socket.on("disconnect", () => {
+    updateBadges(UI.socketStatus, "Desconectado", "bg-danger");
+    updateStatusBar(UI.statusBar, "bg-danger");
+  });
 
   // =================================================================
   // 4. CONFIGURAÇÃO DOS GRÁFICOS (CHART.JS)

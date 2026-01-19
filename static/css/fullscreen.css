@@ -78,8 +78,8 @@ body.fullscreen-active footer {
 .hud-bpm-value {
   font-size: 3.5rem;
   font-weight: bold;
-  color: #00ff00;
   line-height: 1;
+  text-shadow: 0 0 10px var(--bs-success-bg-subtle);
 }
 
 /* Mini Gráficos */
@@ -89,12 +89,14 @@ body.fullscreen-active footer {
   border-radius: 4px;
   border: 1px solid #444;
 }
+
 .mini-chart-box small {
   display: block;
   font-size: 0.6rem;
   color: #ccc;
   margin-bottom: 2px;
 }
+
 .mini-chart-box canvas {
   height: 40px !important; /* Altura fixa pequena */
   width: 100% !important;
@@ -131,8 +133,6 @@ body.fullscreen-active footer {
   left: 20px;
   width: 120px; /* Um pouco maior que no dashboard para visibilidade */
   height: auto;
-  border: 2px solid #00ff00;
-  border-radius: 4px;
   display: none; /* Controlado via JS (respeita o toggle) */
   z-index: 10000;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);

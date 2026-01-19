@@ -1,9 +1,10 @@
 body {
   background-color: #121212;
 }
+
 .card {
-  background-color: #1e1e1e;
-  border: 1px solid #333;
+  background-color: var(--bs-dark-bg-subtle);
+  border: 1px solid var(--bs-border-color);
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
@@ -15,8 +16,9 @@ body {
   background: #000;
   border-radius: 8px;
   overflow: hidden;
-  border: 2px solid #444;
+  border: 2px solid var(--bs-border-color);
 }
+
 #user-video,
 #overlay-canvas {
   position: absolute;
@@ -33,18 +35,16 @@ body {
 #roi-preview {
   width: 100px;
   height: auto;
-  border: 2px solid #00ff00;
-  border-radius: 4px;
   display: none;
 }
 
 .bpm-value {
   font-size: 4rem;
   font-weight: 700;
-  color: #00ff00;
   line-height: 1;
-  text-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+  text-shadow: 0 0 10px var(--bs-success-bg-subtle);
 }
+
 .chart-container {
   position: relative;
   height: 200px;
@@ -52,18 +52,17 @@ body {
 }
 
 .form-check-input:checked {
-  background-color: #00ff00;
-  border-color: #00ff00;
+  background-color: var(--bs-success);
+  border-color: var(--bs-success);
 }
 
 /* Links do Disclaimer */
 .disclaimer-link {
-  color: #0dcaf0;
-  text-decoration: underline;
+  color: var(--bs-info);
   cursor: pointer;
 }
 .disclaimer-link:hover {
-  color: #fff;
+  color: var(--bs-light);
 }
 
 .navbar-nav .btn {

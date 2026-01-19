@@ -31,45 +31,53 @@
   </head>
   <body>
     <nav
-      class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary mb-4"
+      class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm mb-4 border-bottom"
     >
       <div class="container">
         <a class="navbar-brand" href="#">
-          <i class="bi bi-heart-pulse-fill text-danger me-2"></i>HeartCam
+          <i class="bi bi-heart-pulse-fill me-1 text-danger"></i>
+          <span class="text-danger fw-semibold">Heart</span>Cam
         </a>
 
         <button
-          class="navbar-toggler"
+          class="navbar-toggler border-0"
           type="button"
           data-bs-toggle="collapse"
           data-bs-target="#navbarNav"
+          style="box-shadow: none"
         >
           <span class="navbar-toggler-icon"></span>
         </button>
 
-        <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav me-auto mt-1"></ul>
-          <div class="d-flex align-items-center flex-wrap gap-2">
+        <div
+          class="collapse navbar-collapse justify-content-end"
+          id="navbarNav"
+        >
+          <div
+            class="d-flex align-items-center justify-content-end flex-wrap gap-1 mt-lg-0"
+          >
             <button
-              class="btn btn-outline-light btn-sm"
+              class="btn btn-dark btn-sm"
               data-bs-toggle="modal"
               data-bs-target="#modalMetodologia"
             >
-              <i class="bi bi-cpu me-1"></i>Metodologia
+              <i class="bi bi-cpu me-2"></i>Metodologia
             </button>
+            <div class="vr"></div>
             <button
-              class="btn btn-outline-light btn-sm"
+              class="btn btn-dark btn-sm"
               data-bs-toggle="modal"
               data-bs-target="#modalOrientacoes"
             >
-              <i class="bi bi-journal-text me-1"></i>Orientações
+              <i class="bi bi-journal-text me-2"></i>Orientações
             </button>
+            <div class="vr"></div>
             <button
-              class="btn btn-outline-light btn-sm"
+              class="btn btn-dark btn-sm"
               data-bs-toggle="modal"
               data-bs-target="#modalSobre"
             >
-              <i class="bi bi-info-circle me-1"></i>Sobre
+              <i class="bi bi-info-circle me-2"></i>Sobre
             </button>
           </div>
         </div>
@@ -86,7 +94,12 @@
               <h6 class="m-0"><i class="bi bi-camera-video me-2"></i>Câmera</h6>
 
               <div class="d-flex align-items-center gap-2">
-                <img id="roi-preview" src="" alt="Frame de Saída" />
+                <img
+                  id="roi-preview"
+                  src=""
+                  class="border border-2 border-success rounded-2"
+                  alt="Frame de Saída"
+                />
 
                 <button
                   class="btn btn-sm btn-outline-danger"
@@ -131,7 +144,7 @@
                     id="hud-roi-preview"
                     src=""
                     alt="ROI HUD"
-                    class="hud-roi-preview"
+                    class="hud-roi-preview border border-2 border-success rounded-2"
                   />
 
                   <div class="hud-top-left">
@@ -151,7 +164,9 @@
 
                   <div class="hud-top-right text-end">
                     <div class="hud-bpm-label">BPM</div>
-                    <div id="hud-bpm-value" class="hud-bpm-value">--</div>
+                    <div id="hud-bpm-value" class="text-success hud-bpm-value">
+                      --
+                    </div>
                   </div>
 
                   <div class="hud-bottom-right">
@@ -186,23 +201,37 @@
           <div class="row g-4">
             <div class="col-md-6">
               <div
-                class="card text-center p-4 h-100 d-flex flex-column justify-content-center align-items-center"
+                class="card text-center h-100 d-flex flex-column justify-content-center align-items-center position-relative overflow-hidden"
               >
-                <h6 class="text-muted text-uppercase ls-1">
-                  Frequência Cardíaca
-                </h6>
-                <div id="bpm-value" class="bpm-value">--</div>
-                <span class="text-muted">BPM</span>
+                <div
+                  class="position-absolute top-0 start-0 w-100 bg-secondary"
+                  style="height: 5px"
+                  id="status-bar"
+                ></div>
+                <div class="card-header bg-transparent border-0 pt-4 pb-0">
+                  <h6 class="text-muted text-uppercase ls-1 mb-0">
+                    Frequência Cardíaca
+                  </h6>
+                </div>
 
                 <div
-                  class="d-flex gap-2 justify-content-center align-items-center mt-3 flex-wrap"
+                  class="card-body d-flex flex-column justify-content-center align-items-center"
                 >
-                  <span id="socket-status" class="badge bg-secondary">
-                    Desconectado
-                  </span>
-                  <span id="status-msg" class="badge bg-dark text-wrap">
-                    Aguardando câmera...
-                  </span>
+                  <div id="bpm-value" class="bpm-value text-success">--</div>
+                  <span class="text-muted">BPM</span>
+                </div>
+
+                <div class="card-footer bg-transparent border-0 pb-4 pt-0">
+                  <div
+                    class="d-flex gap-2 justify-content-center align-items-center flex-wrap"
+                  >
+                    <span id="socket-status" class="badge bg-secondary">
+                      Desconectado
+                    </span>
+                    <span id="status-msg" class="badge bg-dark text-wrap">
+                      Aguardando câmera...
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -211,68 +240,96 @@
               <div class="card h-100">
                 <div class="card-header">
                   <h6 class="m-0">
-                    <i class="bi bi-sliders me-2"></i>Visualização
+                    <i class="bi bi-eye me-2"></i>Visualização
                   </h6>
                 </div>
-                <div class="card-body">
-                  <div class="form-check form-switch mb-3">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      id="toggle-fft"
-                    />
-                    <label class="form-check-label" for="toggle-fft"
-                      >Espectro (FFT/PSD)</label
-                    >
-                  </div>
-                  <div class="form-check form-switch mb-3">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      id="toggle-raw"
-                      checked
-                    />
-                    <label class="form-check-label" for="toggle-raw"
-                      >Sinal Bruto (Raw)</label
-                    >
-                  </div>
-                  <div class="form-check form-switch mb-3">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      id="toggle-filtered"
-                      checked
-                    />
-                    <label class="form-check-label" for="toggle-filtered"
-                      >Sinal Filtrado (Pulse)</label
-                    >
-                  </div>
-                  <div class="form-check form-switch">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      id="toggle-roi"
-                    />
-                    <label class="form-check-label" for="toggle-roi"
-                      >Região de interesse</label
-                    >
-                  </div>
-                  <hr />
-                  <div
-                    class="mt-4 p-2 border border-secondary rounded bg-dark"
-                    style="font-size: 0.75rem; color: #aaa"
+                <ul class="list-group list-group-flush">
+                  <li
+                    class="list-group-item list-group-item list-group-item-action position-relative"
                   >
-                    <i class="bi bi-exclamation-triangle text-warning me-1"></i>
-                    <strong>Aviso:</strong> Este aplicativo é uma demonstração
-                    teórica experimental.
-                    <b>Não utilize para diagnóstico médico. </b>
-                    <a
-                      class="disclaimer-link"
-                      data-bs-toggle="modal"
-                      data-bs-target="#modalMetodologia"
-                      >Saiba mais &raquo;</a
-                    >
-                  </div>
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="toggle-fft"
+                        switch
+                      />
+                      <label
+                        class="form-check-label stretched-link"
+                        for="toggle-fft"
+                        style="cursor: pointer"
+                        >Espectro (FFT/PSD)</label
+                      >
+                    </div>
+                  </li>
+                  <li
+                    class="list-group-item list-group-item-action position-relative"
+                  >
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="toggle-raw"
+                        switch
+                        checked
+                      />
+                      <label
+                        class="form-check-label stretched-link"
+                        for="toggle-raw"
+                        style="cursor: pointer"
+                        >Sinal Bruto (Raw)</label
+                      >
+                    </div>
+                  </li>
+                  <li
+                    class="list-group-item list-group-item-action position-relative"
+                  >
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="toggle-filtered"
+                        switch
+                        checked
+                      />
+                      <label
+                        class="form-check-label stretched-link"
+                        for="toggle-filtered"
+                        style="cursor: pointer"
+                        >Sinal Filtrado (Pulse)</label
+                      >
+                    </div>
+                  </li>
+                  <li
+                    class="list-group-item list-group-item-action position-relative"
+                  >
+                    <div class="form-check form-switch">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="toggle-roi"
+                        switch
+                      />
+                      <label
+                        class="form-check-label stretched-link"
+                        for="toggle-roi"
+                        style="cursor: pointer"
+                        >Imagem de saída</label
+                      >
+                    </div>
+                  </li>
+                </ul>
+                <div class="card-body text-muted" style="font-size: 0.75rem">
+                  <i class="bi bi-exclamation-triangle text-warning me-1"></i>
+                  <strong>Aviso:</strong> Este aplicativo é uma demonstração
+                  teórica experimental.
+                  <b>Não utilize para diagnóstico médico. </b>
+                  <a
+                    class="disclaimer-link link-offset-1"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalMetodologia"
+                    >Saiba mais &raquo;</a
+                  >
                 </div>
               </div>
             </div>
@@ -283,7 +340,7 @@
       <div class="row g-4">
         <div class="col-12" id="card-fft">
           <div class="card">
-            <div class="card-header bg-dark text-success border-success">
+            <div class="card-header text-success">
               <i class="bi bi-bar-chart-line me-2"></i>Densidade Espectral de
               Potência (FFT)
             </div>
