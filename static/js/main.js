@@ -351,7 +351,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         },
         "image/jpeg",
-        0.5,
+        1,
       );
     }, 100);
   }
