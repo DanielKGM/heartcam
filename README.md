@@ -24,9 +24,9 @@
     <a href="https://heartcam.koyeb.app/"><strong>ACESSAR <i>WEBSITE</i> »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/github_username/repo_name/issues/new?labels=bug&template=bug-report---.md">Reportar Erro</a>
+    <a href="https://github.com/DanielKGM/heartcam/issues/new?labels=bug&template=bug-report---.md">Reportar Erro</a>
     &middot;
-    <a href="https://github.com/github_username/repo_name/issues/new?labels=enhancement&template=feature-request---.md">Sugerir Algo</a>
+    <a href="https://github.com/DanielKGM/heartcam/issues/new?labels=enhancement&template=feature-request---.md">Sugerir Algo</a>
   </p>
 </div>
 
@@ -205,7 +205,7 @@ Após iniciar o servidor (pelo Método A ou B) sem erros, o serviço está ativo
 <!-- CONTACT -->
 ## Contato
 
-[Daniel Galdez](https://www.linkedin.com/in/daniel-campos-galdez-monteiro/) &middot; <a href="mailto:danielgaldez10@hotmail.com?subject=HEARTCAM&body=Olá! Vim do repositório HEARTCAM e ...">danielgaldez10@hotmail.com</a>
+[Daniel Galdez](https://www.linkedin.com/in/daniel-campos-galdez-monteiro/) &middot; <a href="mailto:danielgaldez10@hotmail.com?subject=HEARTCAM&body=Olá! Vim do repositório HEARTCAM e ...">danielgaldez10@hotmail.com</a> &middot; [Daniel Lindoso Penha](https://www.linkedin.com/in/daniel-lindoso-penha-852974215/) &middot; <a href="mailto:daniel.lp@discente.ufma.br?subject=HEARTCAM&body=Olá! Vim do repositório HEARTCAM e ...">daniel.lp@discente.ufma.br</a>
 
 <p align="right">(<a href="#topo">voltar ao topo</a>)</p>
 
