@@ -369,20 +369,20 @@ document.addEventListener("DOMContentLoaded", () => {
       updateImages(UI.roiPreview, msg.roi_image);
     }
 
+    const rectColor =
+      msg.is_locked && msg.face_detected ? "#00ff00" : "#dc3545";
+
+    if (msg.roi_rect) {
+      const [x, y, w, h] = msg.roi_rect;
+      UI.ctxOverlay.beginPath();
+      UI.ctxOverlay.lineWidth = 2; // Mais grosso se travado
+      UI.ctxOverlay.strokeStyle = rectColor;
+      UI.ctxOverlay.rect(x, y, w, h);
+      UI.ctxOverlay.stroke();
+    }
+
     // 3. Lógica de Detecção e Travamento
     if (msg.face_detected) {
-      // Define a cor: Verde se travado, Vermelho se destravado
-      const rectColor = msg.is_locked ? "#00ff00" : "#dc3545";
-
-      if (msg.roi_rect) {
-        const [x, y, w, h] = msg.roi_rect;
-        UI.ctxOverlay.beginPath();
-        UI.ctxOverlay.lineWidth = msg.is_locked ? 3 : 2; // Mais grosso se travado
-        UI.ctxOverlay.strokeStyle = rectColor;
-        UI.ctxOverlay.rect(x, y, w, h);
-        UI.ctxOverlay.stroke();
-      }
-
       // Se estiver TRAVADO, atualiza dados reais
       if (msg.is_locked && STATE.isLocked) {
         updateText(UI.bpm, msg.bpm);
@@ -442,7 +442,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       }
     } else {
-      // Nenhuma face detectada
+      updateText(UI.bpm, "--");
       updateBadges(UI.cameraStatus, "Procurando rosto...", "bg-danger");
     }
   });

@@ -18,15 +18,22 @@ class HeartRateMonitor:
         self.alpha = 170
         self.min_frequency = 0.66
         self.max_frequency = 3.0
-        self.buffer_size = 150
-        self.buffer_index = 0
+
+        # Separação dos buffers
+        self.signal_buffer_size = 128  # Buffer longo para precisão matemática (BPM)
+        self.video_buffer_size = (
+            16  # Buffer curto para visualização rápida (sem rastro)
+        )
+
+        self.signal_index = 0
+        self.video_index = 0
 
         self.proc_width = 160
         self.proc_height = 120
         self.video_channels = 3
 
         self.fps = 15
-        self.timestamps = [0] * self.buffer_size
+        self.timestamps = [0] * self.signal_buffer_size
         self.bpm_calculation_frequency = 10
         self.current_bpm = 0
         self.smoothed_bpm = 0
@@ -50,13 +57,14 @@ class HeartRateMonitor:
     def _init_buffers(self):
         h = self.proc_height // (2**self.levels)
         w = self.proc_width // (2**self.levels)
-        self.video_gauss = np.zeros((self.buffer_size, h, w, self.video_channels))
 
-        self.raw_signal = np.zeros(self.buffer_size)
-        self.fourier_transform_avg = np.zeros((self.buffer_size))
+        self.video_gauss = np.zeros((self.video_buffer_size, h, w, self.video_channels))
+        self.raw_signal = np.zeros(self.signal_buffer_size)
 
         self.frequencies = (
-            (1.0 * self.fps) * np.arange(self.buffer_size) / (1.0 * self.buffer_size)
+            (1.0 * self.fps)
+            * np.arange(self.signal_buffer_size)
+            / (1.0 * self.signal_buffer_size)
         )
         self.mask = (self.frequencies >= self.min_frequency) & (
             self.frequencies <= self.max_frequency
@@ -110,11 +118,19 @@ class HeartRateMonitor:
         except:
             return None
 
-    def _handle_unlocked_state(self, frame):
-        self.buffer_index = 0
+    def reset(self):
+        self.signal_index = 0
+        self.video_index = 0
         self.current_bpm = 0
         self.smoothed_bpm = 0
-        self.raw_signal[:] = 0
+        self.raw_signal.fill(0)
+        self.video_gauss.fill(0)
+        self.timestamps = [0] * self.signal_buffer_size
+        self.psd_data = []
+        self.freq_axis = []
+
+    def _handle_unlocked_state(self, frame):
+        self.reset()
 
         if self.frame_counter % self.detection_frequency == 0 or not self.face_detected:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -162,6 +178,7 @@ class HeartRateMonitor:
         roi = frame[fy : fy + fh, fx : fx + fw]
 
         if not self._is_skin_pixel(roi):
+            self.reset()
             return {
                 "bpm": "--",
                 "face_detected": False,
@@ -173,8 +190,8 @@ class HeartRateMonitor:
         current_time = time.time()
 
         try:
-
             detection_frame = cv2.resize(roi, (self.proc_width, self.proc_height))
+
             self._update_buffers(detection_frame, raw_val, current_time)
 
             filtered_val = self._process_1d_signal(current_time)
@@ -182,8 +199,6 @@ class HeartRateMonitor:
             roi_output_b64 = None
             if send_roi:
                 roi_output_b64 = self._generate_visual_feedback(detection_frame)
-
-            self.buffer_index = (self.buffer_index + 1) % self.buffer_size
 
             return {
                 "bpm": round(self.current_bpm, 1) if self.current_bpm > 40 else "--",
@@ -196,25 +211,34 @@ class HeartRateMonitor:
                 "chart_data": {"x": self.freq_axis, "y": self.psd_data},
             }
         except Exception:
+            self.reset()
             return {"bpm": "--", "face_detected": True, "is_locked": True}
 
     def _update_buffers(self, detection_frame, raw_green_val, current_time):
-        self.timestamps[self.buffer_index] = current_time
+        # Atualiza índices circulares
+        self.signal_index = (self.signal_index + 1) % self.signal_buffer_size
+        self.video_index = (self.video_index + 1) % self.video_buffer_size
 
-        self.raw_signal[self.buffer_index] = raw_green_val
+        # Atualiza dados de sinal (Math)
+        self.timestamps[self.signal_index] = current_time
+        self.raw_signal[self.signal_index] = raw_green_val
 
+        # Atualiza dados de vídeo (Visual)
         pyramid = self._build_gauss(detection_frame, self.levels + 1)
         current_level = pyramid[self.levels]
-        self.video_gauss[self.buffer_index] = current_level
+        self.video_gauss[self.video_index] = current_level
 
     def _process_1d_signal(self, current_time):
-
-        t_start = self.timestamps[(self.buffer_index + 1) % self.buffer_size]
+        # Usa buffer de sinal (tamanho 128)
+        t_start = self.timestamps[(self.signal_index + 1) % self.signal_buffer_size]
         if t_start > 0 and current_time > t_start:
-            self.fps = self.buffer_size / (current_time - t_start)
+            self.fps = self.signal_buffer_size / (current_time - t_start)
 
+        # Atualiza frequências para o buffer matemático
         self.frequencies = (
-            (1.0 * self.fps) * np.arange(self.buffer_size) / (1.0 * self.buffer_size)
+            (1.0 * self.fps)
+            * np.arange(self.signal_buffer_size)
+            / (1.0 * self.signal_buffer_size)
         )
         self.mask = (self.frequencies >= self.min_frequency) & (
             self.frequencies <= self.max_frequency
@@ -222,12 +246,11 @@ class HeartRateMonitor:
 
         signal = np.concatenate(
             (
-                self.raw_signal[self.buffer_index + 1 :],
-                self.raw_signal[: self.buffer_index + 1],
+                self.raw_signal[self.signal_index + 1 :],
+                self.raw_signal[: self.signal_index + 1],
             )
         )
 
-        # normalizar
         signal = signal - np.mean(signal)
         signal = signal / (np.std(signal) + 1e-6)
 
@@ -244,9 +267,9 @@ class HeartRateMonitor:
         fft_masked[self.mask == False] = 0
         filtered_signal = np.real(np.fft.ifft(fft_masked))
 
-        current_filtered_val = filtered_signal[self.buffer_index] * self.alpha
+        current_filtered_val = filtered_signal[self.signal_buffer_size - 1] * self.alpha
 
-        if self.buffer_index % self.bpm_calculation_frequency == 0:
+        if self.signal_index % self.bpm_calculation_frequency == 0:
             idx = np.argmax(magnitude)
             peak_freq = self.frequencies[idx]
 
@@ -264,7 +287,10 @@ class HeartRateMonitor:
                     mags.append(magnitude[i])
 
             mag_sum = sum(mags)
-            instant_bpm = 60 * sum(f * (m / mag_sum) for f, m in zip(freqs, mags))
+            if mag_sum > 0:
+                instant_bpm = 60 * sum(f * (m / mag_sum) for f, m in zip(freqs, mags))
+            else:
+                instant_bpm = self.frequencies[idx] * 60
 
             if self.smoothed_bpm == 0:
                 self.smoothed_bpm = instant_bpm
@@ -277,13 +303,26 @@ class HeartRateMonitor:
         return current_filtered_val
 
     def _generate_visual_feedback(self, detection_frame):
+        # Usa buffer de vídeo (tamanho 16)
+
+        # Gera frequências temporárias baseadas no tamanho do buffer de vídeo
+        vid_frequencies = (
+            (1.0 * self.fps)
+            * np.arange(self.video_buffer_size)
+            / (1.0 * self.video_buffer_size)
+        )
+        vid_mask = (vid_frequencies >= self.min_frequency) & (
+            vid_frequencies <= self.max_frequency
+        )
 
         fourier_transform = np.fft.fft(self.video_gauss, axis=0)
-        fourier_transform[self.mask == False] = 0
+        fourier_transform[vid_mask == False] = 0
 
         filtered = np.real(np.fft.ifft(fourier_transform, axis=0))
+
+        # Reconstrói usando o índice atual do vídeo
         filtered_frame = self._reconstruct_frame(
-            filtered, self.buffer_index, self.levels
+            filtered, self.video_index, self.levels
         )
 
         filtered_frame = filtered_frame * self.alpha
