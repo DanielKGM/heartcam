@@ -1,11 +1,3 @@
-# -------------------------------------------------------------------
-# Project: HeartCam - rPPG Remote Heart Rate Monitor
-# Author: Daniel Campos Galdez Monteiro
-# License: GNU GPLv3
-# Date: 2026
-# Description: Real-time Eulerian Video Magnification implementation.
-# -------------------------------------------------------------------
-
 import numpy as np
 import cv2
 import os
@@ -15,20 +7,17 @@ import time
 
 class HeartRateMonitor:
     def __init__(self):
-        # --- Configurações de Detecção ---
         self._init_face_cascade()
 
-        # Estado
         self.face_rect = [0, 0, 0, 0]
         self.face_detected = False
         self.frame_counter = 0
         self.detection_frequency = 5
 
-        # --- Parâmetros de Processamento (EVM) ---
         self.levels = 3
         self.alpha = 170
-        self.min_frequency = 1.0  # 60 BPM
-        self.max_frequency = 2.0  # 120 BPM
+        self.min_frequency = 0.66
+        self.max_frequency = 3.0
         self.buffer_size = 150
         self.buffer_index = 0
 
@@ -36,17 +25,14 @@ class HeartRateMonitor:
         self.proc_height = 120
         self.video_channels = 3
 
-        # --- Controle de Tempo e BPM ---
         self.fps = 15
         self.timestamps = [0] * self.buffer_size
         self.bpm_calculation_frequency = 10
         self.current_bpm = 0
         self.smoothed_bpm = 0
 
-        # Buffers
         self._init_buffers()
 
-        # Dados para Gráfico
         self.psd_data = []
         self.freq_axis = []
 
@@ -62,24 +48,19 @@ class HeartRateMonitor:
         self.face_cascade = cv2.CascadeClassifier(cascade_path)
 
     def _init_buffers(self):
-        # Buffer circular de vídeo (EVM)
         h = self.proc_height // (2**self.levels)
         w = self.proc_width // (2**self.levels)
-
         self.video_gauss = np.zeros((self.buffer_size, h, w, self.video_channels))
 
-        # Buffer para média da FFT
+        self.raw_signal = np.zeros(self.buffer_size)
         self.fourier_transform_avg = np.zeros((self.buffer_size))
 
-        # Isso garante que o gráfico funcione antes do buffer encher
         self.frequencies = (
             (1.0 * self.fps) * np.arange(self.buffer_size) / (1.0 * self.buffer_size)
         )
         self.mask = (self.frequencies >= self.min_frequency) & (
             self.frequencies <= self.max_frequency
         )
-
-    # CORE: Helpers de Imagem
 
     def _build_gauss(self, frame, levels):
         pyramid = [frame]
@@ -104,12 +85,21 @@ class HeartRateMonitor:
             int(h * fh_h),
         ]
 
-    def _smooth_value(self, current_val, new_val, alpha=0.15):
+    def _adaptive_smooth(self, current_val, new_val, fps):
+        alpha = 0.05 * (30 / max(fps, 1))
+        alpha = np.clip(alpha, 0.01, 0.5)
+
         if current_val == 0:
             return new_val
         return alpha * new_val + (1 - alpha) * current_val
 
-    # FASE 1: Decodificação e Entrada
+    def _is_skin_pixel(self, roi):
+        if roi is None or roi.size == 0:
+            return False
+        b = np.mean(roi[:, :, 0])
+        g = np.mean(roi[:, :, 1])
+        r = np.mean(roi[:, :, 2])
+        return (r > g) and (r > b)
 
     def _decode_frame(self, image_bytes):
         if not image_bytes or not isinstance(image_bytes, (bytes, bytearray)):
@@ -120,12 +110,11 @@ class HeartRateMonitor:
         except:
             return None
 
-    # FASE 2: Lógica de Estado (Destravado vs Travado)
-
     def _handle_unlocked_state(self, frame):
         self.buffer_index = 0
         self.current_bpm = 0
         self.smoothed_bpm = 0
+        self.raw_signal[:] = 0
 
         if self.frame_counter % self.detection_frequency == 0 or not self.face_detected:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -171,18 +160,28 @@ class HeartRateMonitor:
             }
 
         roi = frame[fy : fy + fh, fx : fx + fw]
+
+        if not self._is_skin_pixel(roi):
+            return {
+                "bpm": "--",
+                "face_detected": False,
+                "roi_rect": [fx, fy, fw, fh],
+                "is_locked": True,
+            }
+
         raw_val = np.mean(roi[:, :, 1])
         current_time = time.time()
 
         try:
+
             detection_frame = cv2.resize(roi, (self.proc_width, self.proc_height))
-            fourier_transform = self._update_buffers(detection_frame, current_time)
+            self._update_buffers(detection_frame, raw_val, current_time)
 
-            self._calculate_bpm(fourier_transform, current_time)
+            filtered_val = self._process_1d_signal(current_time)
 
-            filtered_val, roi_output_b64 = self._generate_visual_feedback(
-                detection_frame, fourier_transform, send_roi
-            )
+            roi_output_b64 = None
+            if send_roi:
+                roi_output_b64 = self._generate_visual_feedback(detection_frame)
 
             self.buffer_index = (self.buffer_index + 1) % self.buffer_size
 
@@ -199,29 +198,21 @@ class HeartRateMonitor:
         except Exception:
             return {"bpm": "--", "face_detected": True, "is_locked": True}
 
-    # FASE 3: Processamento Matemático e Visual
-
-    def _update_buffers(self, detection_frame, current_time):
+    def _update_buffers(self, detection_frame, raw_green_val, current_time):
         self.timestamps[self.buffer_index] = current_time
+
+        self.raw_signal[self.buffer_index] = raw_green_val
 
         pyramid = self._build_gauss(detection_frame, self.levels + 1)
         current_level = pyramid[self.levels]
         self.video_gauss[self.buffer_index] = current_level
 
-        return np.fft.fft(self.video_gauss, axis=0)
+    def _process_1d_signal(self, current_time):
 
-    def _calculate_bpm(self, fourier_transform, current_time):
-        if self.buffer_index % self.bpm_calculation_frequency != 0:
-            return
-
-        # Só recalcula FPS se tivermos um timestamp válido (não zero) no início da janela
         t_start = self.timestamps[(self.buffer_index + 1) % self.buffer_size]
-
         if t_start > 0 and current_time > t_start:
             self.fps = self.buffer_size / (current_time - t_start)
-        # Se t_start for 0, mantemos o self.fps = 15 padrão
 
-        # Atualiza Eixos e Máscara
         self.frequencies = (
             (1.0 * self.fps) * np.arange(self.buffer_size) / (1.0 * self.buffer_size)
         )
@@ -229,63 +220,84 @@ class HeartRateMonitor:
             self.frequencies <= self.max_frequency
         )
 
-        ft_analysis = fourier_transform.copy()
-        ft_analysis[self.mask == False] = 0
-
-        for buf in range(self.buffer_size):
-            self.fourier_transform_avg[buf] = np.real(ft_analysis[buf]).mean()
-
-        idx = np.argmax(self.fourier_transform_avg)
-
-        if idx > 0 and idx < self.buffer_size - 1:
-            mag_prev, mag_curr, mag_next = self.fourier_transform_avg[idx - 1 : idx + 2]
-
-            numerator = (
-                self.frequencies[idx - 1] * mag_prev
-                + self.frequencies[idx] * mag_curr
-                + self.frequencies[idx + 1] * mag_next
+        signal = np.concatenate(
+            (
+                self.raw_signal[self.buffer_index + 1 :],
+                self.raw_signal[: self.buffer_index + 1],
             )
-            denominator = mag_prev + mag_curr + mag_next
+        )
 
-            if denominator != 0:
-                weighted_freq = numerator / denominator
-                instant_bpm = 60.0 * weighted_freq
-            else:
-                instant_bpm = 60.0 * self.frequencies[idx]
-        else:
-            instant_bpm = 60.0 * self.frequencies[idx]
+        # normalizar
+        signal = signal - np.mean(signal)
+        signal = signal / (np.std(signal) + 1e-6)
 
-        if self.smoothed_bpm == 0:
-            self.smoothed_bpm = instant_bpm
-        else:
-            self.smoothed_bpm = self._smooth_value(self.smoothed_bpm, instant_bpm)
+        fft_values = np.fft.fft(signal)
 
-        self.current_bpm = self.smoothed_bpm
+        magnitude = np.abs(fft_values)
+        magnitude[self.mask == False] = 0
 
         valid_idx = np.nonzero(self.mask)
-        self.psd_data = self.fourier_transform_avg[valid_idx].tolist()
+        self.psd_data = magnitude[valid_idx].tolist()
         self.freq_axis = (self.frequencies[valid_idx] * 60.0).tolist()
 
-    def _generate_visual_feedback(self, detection_frame, fourier_transform, send_roi):
-        # Garante que a máscara não esteja vazia/zerada
+        fft_masked = fft_values.copy()
+        fft_masked[self.mask == False] = 0
+        filtered_signal = np.real(np.fft.ifft(fft_masked))
+
+        current_filtered_val = filtered_signal[self.buffer_index] * self.alpha
+
+        if self.buffer_index % self.bpm_calculation_frequency == 0:
+            idx = np.argmax(magnitude)
+            peak_freq = self.frequencies[idx]
+
+            if peak_freq * 60 > 100:
+                half_idx = int(idx / 2)
+                if magnitude[half_idx] > 0.6 * magnitude[idx]:
+                    idx = half_idx
+
+            freqs = []
+            mags = []
+
+            for i in [idx - 1, idx, idx + 1]:
+                if 0 <= i < len(self.frequencies):
+                    freqs.append(self.frequencies[i])
+                    mags.append(magnitude[i])
+
+            mag_sum = sum(mags)
+            instant_bpm = 60 * sum(f * (m / mag_sum) for f, m in zip(freqs, mags))
+
+            if self.smoothed_bpm == 0:
+                self.smoothed_bpm = instant_bpm
+            else:
+                self.smoothed_bpm = self._adaptive_smooth(
+                    self.smoothed_bpm, instant_bpm, self.fps
+                )
+            self.current_bpm = self.smoothed_bpm
+
+        return current_filtered_val
+
+    def _generate_visual_feedback(self, detection_frame):
+
+        fourier_transform = np.fft.fft(self.video_gauss, axis=0)
         fourier_transform[self.mask == False] = 0
 
         filtered = np.real(np.fft.ifft(fourier_transform, axis=0))
-        filtered = filtered * self.alpha
-
         filtered_frame = self._reconstruct_frame(
             filtered, self.buffer_index, self.levels
         )
-        filtered_val = np.mean(filtered_frame)
 
-        roi_output_b64 = None
-        if send_roi:
-            output_frame = detection_frame + filtered_frame
-            output_frame = cv2.convertScaleAbs(output_frame)
-            _, buffer_img = cv2.imencode(".jpg", output_frame)
-            roi_output_b64 = base64.b64encode(buffer_img).decode("utf-8")
+        filtered_frame = filtered_frame * self.alpha
 
-        return filtered_val, roi_output_b64
+        b_channel, g_channel, r_channel = cv2.split(filtered_frame)
+
+        empty_channel = np.zeros_like(g_channel)
+        filtered_frame_visual = cv2.merge((empty_channel, g_channel, empty_channel))
+
+        output_frame = detection_frame + filtered_frame_visual
+        output_frame = cv2.convertScaleAbs(output_frame)
+
+        _, buffer_img = cv2.imencode(".jpg", output_frame)
+        return base64.b64encode(buffer_img).decode("utf-8")
 
     def process_frame(self, image_bytes, is_locked=False, send_roi=False):
         frame = self._decode_frame(image_bytes)
