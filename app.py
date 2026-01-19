@@ -68,6 +68,4 @@ if __name__ == "__main__":
         app,
         host="0.0.0.0",
         port=port,
-        use_reloader=True,
-        reloader_options={"extra_files": ["templates/index.html"]},
     )
