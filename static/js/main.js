@@ -29,13 +29,13 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("hud-roi-preview"),
     ],
 
-    // --- NOVO: Botões de Travar/Destravar ---
+    // Botões de Travar/Destravar
     locks: [
       document.getElementById("btn-lock-camera"),
       document.getElementById("btn-lock-hud"),
     ],
 
-    // Fullscreen Controls
+    // Controles de Tela Cheia
     fullscreen: {
       btnExpand: document.getElementById("btn-expand-camera"),
       btnExit: document.getElementById("btn-exit-fullscreen"),
@@ -63,7 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const STATE = {
     isFullscreen: false,
     showRoi: true,
-    isLocked: false, // <--- NOVO: Controla se está calculando ou procurando
+    isLocked: false,
     maxPoints: 100,
     miniMaxPoints: 50,
   };
@@ -76,7 +76,6 @@ document.addEventListener("DOMContentLoaded", () => {
     elements.forEach((el) => {
       if (el) {
         el.innerText = text;
-        // Remove classes antigas de cor (bg-...) e mantém layout
         const layoutClasses = Array.from(el.classList).filter(
           (c) =>
             !c.startsWith("bg-") &&
@@ -85,14 +84,6 @@ document.addEventListener("DOMContentLoaded", () => {
             c !== "text-white",
         );
         el.className = `badge ${cssClass} ${layoutClasses.join(" ")}`;
-      }
-    });
-  };
-
-  const updateStatusBar = (elements, cssClass) => {
-    elements.forEach((el) => {
-      if (el) {
-        el.className = `position-absolute top-0 start-0 w-100 ${cssClass}`;
       }
     });
   };
@@ -128,22 +119,22 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // =================================================================
-  // 3. CONFIGURAÇÃO DE SOCKET E STATUS
+  // 3. CONFIGURAÇÃO DE SOCKET E GRÁFICOS
   // =================================================================
   const socket = io();
 
   socket.on("connect", () => {
     updateBadges(UI.socketStatus, "Conectado", "bg-success");
-    updateStatusBar(UI.statusBar, "bg-success");
+    if (UI.statusBar[0])
+      UI.statusBar[0].className =
+        "position-absolute top-0 start-0 w-100 bg-success";
   });
   socket.on("disconnect", () => {
     updateBadges(UI.socketStatus, "Desconectado", "bg-danger");
-    updateStatusBar(UI.statusBar, "bg-danger");
+    if (UI.statusBar[0])
+      UI.statusBar[0].className =
+        "position-absolute top-0 start-0 w-100 bg-danger";
   });
-
-  // =================================================================
-  // 4. CONFIGURAÇÃO DOS GRÁFICOS (CHART.JS)
-  // =================================================================
 
   const createChart = (ctxId, color, isMini = false, isTimeBased = false) => {
     const ctx = document.getElementById(ctxId);
@@ -192,25 +183,6 @@ document.addEventListener("DOMContentLoaded", () => {
     },
   };
 
-  const clearAllCharts = () => {
-    const allCharts = [
-      charts.main.fft,
-      charts.main.raw,
-      charts.main.filtered,
-      charts.mini.fft,
-      charts.mini.raw,
-      charts.mini.filtered,
-    ];
-
-    allCharts.forEach((chart) => {
-      if (chart) {
-        chart.data.labels = [];
-        chart.data.datasets[0].data = [];
-        chart.update(); // Força a atualização visual para vazio
-      }
-    });
-  };
-
   const pushChartData = (chart, value, maxPoints) => {
     if (!chart) return;
     chart.data.labels.push("");
@@ -223,8 +195,35 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // =================================================================
-  // 5. LÓGICA DE FULLSCREEN, TOGGLES E LOCK
+  // 4. LÓGICA DE TRAVAMENTO E TELA CHEIA
   // =================================================================
+
+  const toggleLock = (forceState = null) => {
+    if (forceState !== null) {
+      STATE.isLocked = forceState;
+    } else {
+      STATE.isLocked = !STATE.isLocked;
+    }
+
+    UI.locks.forEach((btn) => {
+      if (!btn) return;
+      if (STATE.isLocked) {
+        // TRAVADO (Verde)
+        btn.innerHTML = '<i class="bi bi-lock-fill"></i>';
+        btn.classList.replace("btn-outline-danger", "btn-success");
+        btn.classList.replace("btn-danger", "btn-success");
+      } else {
+        // DESTRAVADO (Vermelho)
+        btn.innerHTML = '<i class="bi bi-unlock-fill"></i>';
+        btn.classList.replace("btn-success", "btn-outline-danger");
+        btn.classList.replace("btn-success", "btn-danger");
+      }
+    });
+  };
+
+  UI.locks.forEach((btn) => {
+    if (btn) btn.addEventListener("click", () => toggleLock());
+  });
 
   const toggleFullscreen = (active) => {
     STATE.isFullscreen = active;
@@ -255,42 +254,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Escape" && STATE.isFullscreen) toggleFullscreen(false);
   });
 
-  // --- Lógica de Travar/Destravar ---
-  const toggleLock = () => {
-    STATE.isLocked = !STATE.isLocked;
-
-    // 1. Atualiza Visual dos Botões
-    UI.locks.forEach((btn) => {
-      if (!btn) return;
-      if (STATE.isLocked) {
-        // TRAVADO (Verde)
-        btn.innerHTML = '<i class="bi bi-lock-fill"></i>';
-        btn.classList.replace("btn-outline-danger", "btn-success");
-        btn.classList.replace("btn-danger", "btn-success");
-      } else {
-        // DESTRAVADO (Vermelho)
-        btn.innerHTML = '<i class="bi bi-unlock-fill"></i>';
-        btn.classList.replace("btn-success", "btn-outline-danger");
-        btn.classList.replace("btn-success", "btn-danger");
-      }
-    });
-
-    if (!STATE.isLocked) {
-      clearAllCharts();
-    }
-  };
-
-  // Adiciona evento de clique aos botões de lock
-  UI.locks.forEach((btn) => {
-    if (btn) btn.addEventListener("click", toggleLock);
-  });
-
-  // Configuração dos Toggles
+  // Toggles
   syncVisibility("toggle-fft", UI.cards.fft, UI.hudBoxes.fft);
   syncVisibility("toggle-raw", UI.cards.raw, UI.hudBoxes.raw);
   syncVisibility("toggle-filtered", UI.cards.filtered, UI.hudBoxes.filtered);
 
-  // Toggle ROI específico
   if (UI.fullscreen.toggleRoi) {
     UI.fullscreen.toggleRoi.addEventListener("change", (e) => {
       STATE.showRoi = e.target.checked;
@@ -302,7 +270,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // =================================================================
-  // 6. CÂMERA E LOOP DE ENVIO
+  // 5. CÂMERA E LOOP DE ENVIO
   // =================================================================
 
   navigator.mediaDevices
@@ -314,19 +282,20 @@ document.addEventListener("DOMContentLoaded", () => {
         "Câmera ativa. Processando...",
         "bg-primary",
       );
+      UI.video.play();
       startSendingFrames();
     })
     .catch((err) => {
       console.error(err);
-      updateBadges(UI.cameraStatus, "Erro: Câmera não permitida", "bg-danger");
+      updateBadges(UI.cameraStatus, "Erro: Câmera bloqueada", "bg-danger");
     });
 
   let isSending = false;
 
   function startSendingFrames() {
     setInterval(() => {
-      if (!socket.connected) return;
-      if (isSending) return;
+      if (!socket.connected || isSending) return;
+
       UI.ctxFrame.drawImage(UI.video, 0, 0, 320, 240);
       UI.canvasFrame.toBlob(
         (blob) => {
@@ -351,13 +320,13 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         },
         "image/jpeg",
-        1,
+        0.8, // Qualidade um pouco menor para garantir performance
       );
-    }, 100);
+    }, 100); // 10 FPS
   }
 
   // =================================================================
-  // 7. PROCESSAMENTO DE DADOS (SOCKET)
+  // 6. PROCESSAMENTO DE DADOS (SOCKET)
   // =================================================================
 
   socket.on("data_update", (msg) => {
@@ -375,7 +344,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (msg.roi_rect) {
       const [x, y, w, h] = msg.roi_rect;
       UI.ctxOverlay.beginPath();
-      UI.ctxOverlay.lineWidth = 2; // Mais grosso se travado
+      UI.ctxOverlay.lineWidth = 2;
       UI.ctxOverlay.strokeStyle = rectColor;
       UI.ctxOverlay.rect(x, y, w, h);
       UI.ctxOverlay.stroke();
@@ -383,13 +352,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 3. Lógica de Detecção e Travamento
     if (msg.face_detected) {
-      // Se estiver TRAVADO, atualiza dados reais
       if (msg.is_locked && STATE.isLocked) {
         updateText(UI.bpm, msg.bpm);
         updateBadges(UI.cameraStatus, "Calculando BPM...", "bg-success");
 
-        // Atualiza Gráficos (Só se travado)
-        // FFT
+        // Atualiza Gráficos
         if (msg.chart_data && msg.chart_data.x.length > 0) {
           const labels = msg.chart_data.x.map((v) => Math.round(v));
           charts.main.fft.data.labels = labels;
@@ -403,7 +370,6 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
 
-        // Gráficos Tempo Real
         const isRawVisible = !UI.cards.raw.classList.contains("d-none");
         const isFilteredVisible =
           !UI.cards.filtered.classList.contains("d-none");
@@ -433,11 +399,10 @@ document.addEventListener("DOMContentLoaded", () => {
             );
         }
       } else {
-        // Se estiver DESTRAVADO (Procurando rosto)
         updateText(UI.bpm, "--");
         updateBadges(
           UI.cameraStatus,
-          "Rosto encontrado. Clique no cadeado para travar área e medir.",
+          "Rosto encontrado. Trave para medir.",
           "bg-warning text-dark",
         );
       }
@@ -446,4 +411,49 @@ document.addEventListener("DOMContentLoaded", () => {
       updateBadges(UI.cameraStatus, "Procurando rosto...", "bg-danger");
     }
   });
+
+  // =================================================================
+  // 7. AUTO-DESTRAVAMENTO NO SCROLL (Interruption Logic)
+  // =================================================================
+
+  const toastContainer = document.createElement("div");
+  toastContainer.className =
+    "toast-container position-fixed bottom-0 end-0 p-3";
+  toastContainer.style.zIndex = "1100";
+
+  toastContainer.innerHTML = `
+    <div id="scrollToast" class="toast align-items-center text-bg-warning border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="bi bi-exclamation-circle-fill me-2"></i>
+          Navegadores desativam o acesso à câmera quando a aba não está visível. Gráficos e BPM podem não ser atualizados.
+        </div>
+        <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close" style="filter: none;"></button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(toastContainer);
+
+  const scrollToast = new bootstrap.Toast(
+    document.getElementById("scrollToast"),
+  );
+
+  const observerOptions = {
+    root: null,
+    threshold: 0.1, // Ativa quando apenas 10% do vídeo estiver visível (quase saindo)
+  };
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting && STATE.isLocked) {
+        toggleLock(false);
+        scrollToast.show();
+      }
+    });
+  }, observerOptions);
+
+  const cameraCard = document.getElementById("camera-card");
+  if (cameraCard) {
+    observer.observe(cameraCard);
+  }
 });
