@@ -413,13 +413,12 @@ document.addEventListener("DOMContentLoaded", () => {
   toastContainer.style.zIndex = "1100";
 
   toastContainer.innerHTML = `
-    <div id="scrollToast" class="toast align-items-center text-bg-warning border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div id="scrollToast" class="toast align-items-center text-bg-warning border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="8000">
       <div class="d-flex">
         <div class="toast-body">
           <i class="bi bi-exclamation-circle-fill me-2"></i>
-          Navegadores desativam o acesso à câmera quando a aba não está visível. Gráficos e BPM podem não ser atualizados.
+          Navegadores desativam o acesso à câmera quando a aba não está visível. Use tela cheia para gráficos em tempo real.
         </div>
-        <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close" style="filter: none;"></button>
       </div>
     </div>
   `;
