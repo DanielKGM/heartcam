@@ -298,7 +298,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "image/jpeg",
         0.9,
       );
-    }, 50); // 20 FPS
+    }, 66); // 15 fps
   }
 
   // =================================================================

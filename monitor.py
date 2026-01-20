@@ -25,7 +25,7 @@ class HeartRateMonitor:
         self.proc_width = 160
         self.proc_height = 120
 
-        self.fps = 20  # Valor inicial (será ajustado dinamicamente)
+        self.fps = 15  # Valor inicial (será ajustado dinamicamente)
         self.timestamps = []
         self.bpm_calculation_frequency = 2
 
