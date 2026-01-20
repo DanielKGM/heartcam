@@ -20,10 +20,8 @@ class HeartRateMonitor:
         self.max_frequency = 3.0
 
         # Separação dos buffers
-        self.signal_buffer_size = 128  # Buffer longo para precisão matemática (BPM)
-        self.video_buffer_size = (
-            16  # Buffer curto para visualização rápida (sem rastro)
-        )
+        self.signal_buffer_size = 128  # Buffer longo
+        self.video_buffer_size = 16  # buffer curto (previsualização)
 
         self.signal_index = 0
         self.video_index = 0
@@ -34,7 +32,7 @@ class HeartRateMonitor:
 
         self.fps = 15
         self.timestamps = [0] * self.signal_buffer_size
-        self.bpm_calculation_frequency = 10
+        self.bpm_calculation_frequency = 1
         self.current_bpm = 0
         self.smoothed_bpm = 0
 
@@ -277,6 +275,19 @@ class HeartRateMonitor:
                 half_idx = int(idx / 2)
                 if magnitude[half_idx] > 0.6 * magnitude[idx]:
                     idx = half_idx
+                    peak_freq = self.frequencies[idx]
+
+            elif peak_freq * 60 < 50:
+                min_human_idx = np.argmax(self.frequencies >= 1.0)
+                max_human_idx = np.argmax(self.frequencies >= 1.7)
+
+                human_range_mags = magnitude[min_human_idx:max_human_idx]
+
+                if len(human_range_mags) > 0:
+                    local_peak = np.argmax(human_range_mags)
+                    possible_idx = min_human_idx + local_peak
+                    if magnitude[possible_idx] > 0.5 * magnitude[idx]:
+                        idx = possible_idx
 
             freqs = []
             mags = []
@@ -303,9 +314,6 @@ class HeartRateMonitor:
         return current_filtered_val
 
     def _generate_visual_feedback(self, detection_frame):
-        # Usa buffer de vídeo (tamanho 16)
-
-        # Gera frequências temporárias baseadas no tamanho do buffer de vídeo
         vid_frequencies = (
             (1.0 * self.fps)
             * np.arange(self.video_buffer_size)
@@ -320,7 +328,6 @@ class HeartRateMonitor:
 
         filtered = np.real(np.fft.ifft(fourier_transform, axis=0))
 
-        # Reconstrói usando o índice atual do vídeo
         filtered_frame = self._reconstruct_frame(
             filtered, self.video_index, self.levels
         )
