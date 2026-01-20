@@ -175,14 +175,14 @@ class HeartRateMonitor:
 
         roi = frame[fy : fy + fh, fx : fx + fw]
 
-        if not self._is_skin_pixel(roi):
-            self.reset()
-            return {
-                "bpm": "--",
-                "face_detected": False,
-                "roi_rect": [fx, fy, fw, fh],
-                "is_locked": True,
-            }
+        # if not self._is_skin_pixel(roi):
+        #    self.reset()
+        #    return {
+        #        "bpm": "--",
+        #        "face_detected": False,
+        #        "roi_rect": [fx, fy, fw, fh],
+        #        "is_locked": True,
+        #    }
 
         raw_val = np.mean(roi[:, :, 1])
         current_time = time.time()
