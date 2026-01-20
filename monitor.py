@@ -25,7 +25,7 @@ class HeartRateMonitor:
         self.proc_width = 160
         self.proc_height = 120
 
-        self.fps = 15.0  # Valor inicial (será ajustado dinamicamente)
+        self.fps = 20  # Valor inicial (será ajustado dinamicamente)
         self.timestamps = []
         self.bpm_calculation_frequency = 2
 
@@ -53,7 +53,7 @@ class HeartRateMonitor:
         now = time.time()
         # Inicializa timestamps simulados para evitar FPS infinito no começo
         self.timestamps = [
-            now - (i * (1 / 15.0)) for i in range(self.signal_buffer_size)
+            now - (i * (1 / self.fps)) for i in range(self.signal_buffer_size)
         ]
         self.timestamps.reverse()
 
