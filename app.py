@@ -49,13 +49,13 @@ def handle_process_frame(data):
 
     # NOVOS PARÂMETROS
     is_locked = data.get("is_locked", False)
-    send_roi = data.get("send_roi", False)
+    # send_roi foi removido pois não usamos mais
 
     if sid in client_monitors and image_data:
         monitor = client_monitors[sid]
 
         # Passa as flags para o monitor
-        result = monitor.process_frame(image_data, is_locked, send_roi)
+        result = monitor.process_frame(image_data, is_locked)
 
         if result:
             emit("data_update", result)

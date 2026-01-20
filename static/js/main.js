@@ -24,10 +24,6 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("status-msg"),
       document.getElementById("hud-camera-status"),
     ],
-    roiPreview: [
-      document.getElementById("roi-preview"),
-      document.getElementById("hud-roi-preview"),
-    ],
 
     // Botões de Travar/Destravar
     locks: [
@@ -41,7 +37,6 @@ document.addEventListener("DOMContentLoaded", () => {
       btnExit: document.getElementById("btn-exit-fullscreen"),
       wrapper: document.getElementById("main-video-wrapper"),
       hud: document.getElementById("camera-hud"),
-      toggleRoi: document.getElementById("toggle-roi"),
     },
 
     // Cards (para toggles)
@@ -62,7 +57,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // Estado Global
   const STATE = {
     isFullscreen: false,
-    showRoi: true,
     isLocked: false,
     maxPoints: 100,
     miniMaxPoints: 50,
@@ -91,13 +85,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const updateText = (elements, text) => {
     elements.forEach((el) => {
       if (el) el.innerText = text;
-    });
-  };
-
-  const updateImages = (elements, base64) => {
-    const src = "data:image/jpeg;base64," + base64;
-    elements.forEach((el) => {
-      if (el) el.src = src;
     });
   };
 
@@ -259,16 +246,6 @@ document.addEventListener("DOMContentLoaded", () => {
   syncVisibility("toggle-raw", UI.cards.raw, UI.hudBoxes.raw);
   syncVisibility("toggle-filtered", UI.cards.filtered, UI.hudBoxes.filtered);
 
-  if (UI.fullscreen.toggleRoi) {
-    UI.fullscreen.toggleRoi.addEventListener("change", (e) => {
-      STATE.showRoi = e.target.checked;
-      UI.roiPreview.forEach((el) => {
-        if (el) el.style.display = STATE.showRoi ? "block" : "none";
-      });
-    });
-    UI.fullscreen.toggleRoi.dispatchEvent(new Event("change"));
-  }
-
   // =================================================================
   // 5. CÂMERA E LOOP DE ENVIO
   // =================================================================
@@ -307,7 +284,6 @@ document.addEventListener("DOMContentLoaded", () => {
               {
                 image: blob,
                 is_locked: STATE.isLocked,
-                send_roi: STATE.showRoi,
               },
               (response) => {
                 isSending = false;
@@ -320,7 +296,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         },
         "image/jpeg",
-        0.8, // Qualidade um pouco menor para garantir performance
+        0.8,
       );
     }, 100); // 10 FPS
   }
@@ -333,24 +309,39 @@ document.addEventListener("DOMContentLoaded", () => {
     // 1. Limpa Overlay
     UI.ctxOverlay.clearRect(0, 0, 320, 240);
 
-    // 2. Atualiza Imagem ROI
-    if (msg.roi_image) {
-      updateImages(UI.roiPreview, msg.roi_image);
-    }
-
-    const rectColor =
-      msg.is_locked && msg.face_detected ? "#00ff00" : "#dc3545";
-
+    // 2. Desenha ROI (Retângulo ou Feedback Visual)
     if (msg.roi_rect) {
       const [x, y, w, h] = msg.roi_rect;
-      UI.ctxOverlay.beginPath();
-      UI.ctxOverlay.lineWidth = 2;
-      UI.ctxOverlay.strokeStyle = rectColor;
-      UI.ctxOverlay.rect(x, y, w, h);
-      UI.ctxOverlay.stroke();
+
+      if (
+        msg.is_locked &&
+        msg.face_detected &&
+        msg.pulse_intensity !== undefined
+      ) {
+        // MODO TRAVADO: Desenha o quadrado PREENCHIDO com opacidade variável
+        // A intensidade vem de 0 a 1. Usamos isso para controlar a opacidade (alpha).
+        // Um multiplicador (ex: 0.6) evita que fique 100% opaco.
+        const opacity = msg.pulse_intensity * 0.7;
+
+        UI.ctxOverlay.fillStyle = `rgba(0, 255, 0, ${opacity})`;
+        UI.ctxOverlay.fillRect(x, y, w, h);
+
+        // Borda fina para delimitar
+        UI.ctxOverlay.lineWidth = 1;
+        UI.ctxOverlay.strokeStyle = "rgba(0, 255, 0, 0.5)";
+        UI.ctxOverlay.strokeRect(x, y, w, h);
+      } else {
+        // MODO BUSCA: Apenas borda
+        const rectColor = msg.face_detected ? "#00ff00" : "#dc3545";
+        UI.ctxOverlay.beginPath();
+        UI.ctxOverlay.lineWidth = 2;
+        UI.ctxOverlay.strokeStyle = rectColor;
+        UI.ctxOverlay.rect(x, y, w, h);
+        UI.ctxOverlay.stroke();
+      }
     }
 
-    // 3. Lógica de Detecção e Travamento
+    // 3. Lógica de UI (Badges e Gráficos)
     if (msg.face_detected) {
       if (msg.is_locked && STATE.isLocked) {
         updateText(UI.bpm, msg.bpm);
@@ -440,7 +431,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const observerOptions = {
     root: null,
-    threshold: 0.1, // Ativa quando apenas 10% do vídeo estiver visível (quase saindo)
+    threshold: 0.1,
   };
 
   const observer = new IntersectionObserver((entries) => {
