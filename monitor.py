@@ -13,25 +13,19 @@ class HeartRateMonitor:
         self.frame_counter = 0
         self.detection_frequency = 5
 
-        # Configurações de Sinal
-        self.min_frequency = 0.7  # ~42 BPM
-        self.max_frequency = 3.0  # ~180 BPM
+        self.min_frequency = 0.7
+        self.max_frequency = 3.0
 
-        # Buffer de sinal
-        self.signal_buffer_size = 128  # ~8.5 seg a 15fps
+        self.signal_buffer_size = 200
         self.signal_index = 0
 
-        # Dimensões de referência
-        self.proc_width = 160
-        self.proc_height = 120
-
-        self.fps = 15  # Valor inicial (será ajustado dinamicamente)
+        self.fps = 20
         self.timestamps = []
         self.bpm_calculation_frequency = 2
 
         self.current_bpm = 0
         self.smoothed_bpm = 0
-        self.alpha_smooth = 0.1  # Suavização visual
+        self.alpha_smooth = 0.1
 
         self._init_buffers()
 
@@ -51,7 +45,7 @@ class HeartRateMonitor:
     def _init_buffers(self):
         self.raw_signal = np.zeros(self.signal_buffer_size)
         now = time.time()
-        # Inicializa timestamps simulados para evitar FPS infinito no começo
+
         self.timestamps = [
             now - (i * (1 / self.fps)) for i in range(self.signal_buffer_size)
         ]
@@ -139,7 +133,6 @@ class HeartRateMonitor:
 
         roi = frame[fy : fy + fh, fx : fx + fw]
 
-        # Mantendo canal VERDE (melhor que a média RGB da inspiração)
         raw_val = np.mean(roi[:, :, 1])
         current_time = time.time()
 
@@ -147,7 +140,6 @@ class HeartRateMonitor:
             self._update_buffers(raw_val, current_time)
             filtered_val = self._process_1d_signal(current_time)
 
-            # Normalização visual (0.0 a 1.0) para o quadrado piscante
             pulse_intensity = np.clip((filtered_val + 2) / 4, 0, 1)
 
             return {
@@ -171,9 +163,7 @@ class HeartRateMonitor:
         self.raw_signal[self.signal_index] = raw_val
 
     def _find_peaks_heuristic(self, freqs, mags):
-        # Lógica portada do heartcam_forehead.py (função find_peaks e lógica adjacente)
 
-        # 1. Encontra o pico máximo inicial na faixa válida completa
         if len(mags) == 0:
             return 0
 
@@ -181,30 +171,24 @@ class HeartRateMonitor:
         peak_freq = freqs[max_idx]
         final_idx = max_idx
 
-        # 2. Correção de Harmônicos (Inspiration Logic)
-
-        # Se detectou > 120 BPM (2 Hz), verifica se não é um harmônico do dobro
-        # Ex: Detectou 140, mas na verdade é 70.
         if peak_freq > 2.0:
             half_freq = peak_freq / 2.0
-            # Busca se existe um pico forte ao redor da metade da frequência
+
             search_mask = (freqs >= half_freq - 0.2) & (freqs <= half_freq + 0.2)
             if np.any(search_mask):
-                # Pega os indices dessa sub-região
+
                 sub_idxs = np.where(search_mask)[0]
-                # Se o maior pico nessa região for significativo (> 60% do pico maximo)
+
                 sub_max_idx = sub_idxs[np.argmax(mags[sub_idxs])]
                 if mags[sub_max_idx] > 0.6 * mags[max_idx]:
                     final_idx = sub_max_idx
 
-        # Se detectou < 50 BPM (0.83 Hz), força busca na faixa humana comum (60-100 BPM)
-        # Ex: Ruído de baixa frequencia mascarando o pulso real
         elif peak_freq < 0.83:
-            search_mask = (freqs >= 1.0) & (freqs <= 1.66)  # 60 a 100 BPM
+            search_mask = (freqs >= 1.0) & (freqs <= 1.66)
             if np.any(search_mask):
                 sub_idxs = np.where(search_mask)[0]
                 sub_max_idx = sub_idxs[np.argmax(mags[sub_idxs])]
-                # Se houver algo relevante ali, assume que é o coração
+
                 if mags[sub_max_idx] > 0.5 * mags[max_idx]:
                     final_idx = sub_max_idx
 
@@ -220,63 +204,48 @@ class HeartRateMonitor:
 
         self.fps = np.clip(self.fps, 10, 60)
 
-        # Eixo de frequências completo
         all_freqs = np.fft.fftfreq(self.signal_buffer_size, d=1.0 / self.fps)
 
-        # Preparação do Sinal
         signal = np.array(self.raw_signal)
         signal = np.roll(signal, -self.signal_index - 1)
         signal = signal - np.mean(signal)
         std = np.std(signal)
         signal = signal / (std if std > 1e-6 else 1)
 
-        # FFT
         fft_values = np.fft.fft(signal)
         magnitude = np.abs(fft_values)
 
-        # Filtros para Visualização e Cálculo
-        # Faixa Estrita para BPM (0.7 a 3.0 Hz / 42 a 180 BPM)
         bpm_mask_indices = (all_freqs >= self.min_frequency) & (
             all_freqs <= self.max_frequency
         )
 
-        # Dados para o Gráfico (apenas frequencias positivas dentro da faixa)
         valid_idx = np.where(bpm_mask_indices)[0]
         if len(valid_idx) > 0:
             self.psd_data = magnitude[valid_idx].tolist()
             self.freq_axis = (all_freqs[valid_idx] * 60.0).tolist()
 
-        # Filtragem Temporal (para o visual do pulso)
         fft_masked = fft_values.copy()
         fft_masked[~bpm_mask_indices] = 0
         filtered_signal = np.real(np.fft.ifft(fft_masked))
         current_filtered_val = filtered_signal[-1]
 
-        # Cálculo de BPM (lógica da inspiração aplicada)
         if (
             self.signal_index % self.bpm_calculation_frequency == 0
             and len(valid_idx) > 0
         ):
 
-            # Recorta arrays apenas para a região de interesse para busca de picos
             roi_freqs = all_freqs[valid_idx]
             roi_mags = magnitude[valid_idx]
 
-            # 1. Encontra o índice do pico usando a heurística de harmônicos
             local_peak_idx = self._find_peaks_heuristic(roi_freqs, roi_mags)
 
-            # 2. Média Ponderada (Weighted Average) para precisão decimal
-            # Pega o vizinho da esquerda e direita no array RECORTADO
             peak_freq = roi_freqs[local_peak_idx]
 
-            # Tenta pegar vizinhos para suavizar
             try:
-                # Indices globais (no array valid_idx)
+
                 idx_prev = max(0, local_peak_idx - 1)
                 idx_next = min(len(roi_mags) - 1, local_peak_idx + 1)
 
-                # Somas ponderadas
-                # (freq * mag) / sum(mag)
                 weighted_freq_sum = 0
                 mag_sum = 0
 
@@ -292,7 +261,6 @@ class HeartRateMonitor:
             except:
                 instant_bpm = peak_freq * 60.0
 
-            # Suavização final
             if 40 <= instant_bpm <= 200:
                 if self.smoothed_bpm == 0:
                     self.smoothed_bpm = instant_bpm
