@@ -21,7 +21,7 @@
     <strong>HeartCam</strong> é uma aplicação <i>web</i> que estima <strong>batimentos cardíacos</strong> em tempo real, a partir das <strong>câmeras</strong> de dispositivos móveis ou computadores.
     <br />
     <br />
-    <a href="https://heartcam.koyeb.app/"><strong>ACESSAR <i>WEBSITE</i> »</strong></a>
+    <a href="https://heartcam.koyeb.app/"><strong><s>ACESSAR <i>WEBSITE</i> »</s> (SERVIÇO ATUALMENTE PAUSADO)</strong></a>
     <br />
     <br />
     <a href="https://github.com/DanielKGM/heartcam/issues/new?labels=bug&template=bug-report---.md">Reportar Erro</a>
@@ -196,7 +196,7 @@ Após iniciar o servidor (pelo Método A ou B) sem erros, o serviço está ativo
 
 ## Contato
 
-[Daniel Galdez](https://www.linkedin.com/in/daniel-campos-galdez-monteiro/) &middot; <a href="mailto:danielgaldez10@hotmail.com?subject=HEARTCAM&body=Olá! Vim do repositório HEARTCAM e ...">danielgaldez10@hotmail.com</a> &middot; [Daniel Lindoso Penha](https://www.linkedin.com/in/daniel-lindoso-penha-852974215/) &middot; <a href="mailto:daniel.lp@discente.ufma.br?subject=HEARTCAM&body=Olá! Vim do repositório HEARTCAM e ...">daniel.lp@discente.ufma.br</a>
+[Daniel Galdez](https://www.linkedin.com/in/daniel-campos-galdez-monteiro/) &middot; <a href="mailto:danielgaldez10@hotmail.com?subject=HEARTCAM&body=Olá! Vim do repositório HEARTCAM e ...">danielgaldez10@hotmail.com</a>
 
 <p align="right">(<a href="#topo">voltar ao topo</a>)</p>
 
