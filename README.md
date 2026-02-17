@@ -21,7 +21,7 @@
     <strong>HeartCam</strong> é uma aplicação <i>web</i> que estima <strong>batimentos cardíacos</strong> em tempo real, a partir das <strong>câmeras</strong> de dispositivos móveis ou computadores.
     <br />
     <br />
-    <a href="https://heartcam.koyeb.app/"><strong><s>ACESSAR <i>WEBSITE</i> »</s> (SERVIÇO ATUALMENTE PAUSADO)</strong></a>
+    <a href="https://heartcam.koyeb.app/"><strong>ACESSAR <i>WEBSITE</i> »</strong></a>
     <br />
     <br />
     <a href="https://github.com/DanielKGM/heartcam/issues/new?labels=bug&template=bug-report---.md">Reportar Erro</a>
